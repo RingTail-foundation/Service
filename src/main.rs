@@ -14,6 +14,7 @@ use tower_http::{
 mod algorithm;
 mod crawl;
 mod db;
+mod robots;
 
 use algorithm::rank::SEARCH_SQL;
 use algorithm::sitelinks::{group_by_domain, GroupedResult, ResultItem};
@@ -155,6 +156,7 @@ async fn main() {
     let app = Router::new()
         .route("/search", get(search))
         .route("/crawl", post(crawl_handler))
+        .route("/admin/discover-sitemap", post(discover_sitemap_handler))
         .route("/admin/prune", post(prune_handler))
         .fallback_service(ServeDir::new("static").append_index_html_on_directories(true))
         .with_state(state)
@@ -404,6 +406,41 @@ async fn crawl_handler(
     .execute(state.db.as_ref())
     .await;
     "Queued"
+}
+
+#[derive(Deserialize)]
+struct DiscoverSitemapRequest {
+    url: String,
+}
+
+/// Bulk URL discovery via a site's sitemap.xml (declared in robots.txt, or
+/// the conventional /sitemap.xml fallback) — much faster than waiting for
+/// ordinary link-crawling to find every page one link at a time.
+async fn discover_sitemap_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<DiscoverSitemapRequest>,
+) -> Json<String> {
+    let client = reqwest::Client::new();
+    let urls = robots::discover_sitemap_urls(&client, &payload.url).await;
+
+    let mut queued = 0i64;
+    for url in &urls {
+        let result = sqlx::query(
+            "INSERT INTO crawl_queue (url) VALUES ($1) ON CONFLICT (url) DO NOTHING"
+        )
+        .bind(url)
+        .execute(state.db.as_ref())
+        .await;
+        if matches!(result, Ok(r) if r.rows_affected() > 0) {
+            queued += 1;
+        }
+    }
+
+    Json(format!(
+        "Found {} URLs in sitemap(s), queued {} new",
+        urls.len(),
+        queued
+    ))
 }
 
 async fn prune_handler(
