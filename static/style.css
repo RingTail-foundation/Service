@@ -130,3 +130,23 @@ button{
     color: #1a6b1a;
     font-size: 14px;
 }
+
+.sitelinks {
+    margin-top: 14px;
+    margin-left: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px 24px;
+}
+
+.sitelink a {
+    font-size: 16px;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.sitelink .url {
+    color: #1a6b1a;
+    font-size: 13px;
+    margin-top: 2px;
+}
