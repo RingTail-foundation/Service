@@ -79,6 +79,10 @@ pub struct CrawledPage {
     pub content: String,
     pub discovered_urls: Vec<String>,
     pub metadata: crate::algorithm::metadata::PageMetadata,
+    /// True if X-Robots-Tag or <meta name="robots"> said noindex — page is
+    /// still fetched and its links still followed (unless nofollow was also
+    /// set), it just shouldn't be written into the search index.
+    pub noindex: bool,
 }
 
 pub fn is_junk_url(url: &str) -> bool {
@@ -126,9 +130,19 @@ mod tests {
 }
 
 pub async fn crawl(url: &str) -> Result<CrawledPage, Box<dyn std::error::Error + Send + Sync>> {
+    if !crate::robots::is_allowed(&CLIENT, url).await {
+        return Err("Disallowed by robots.txt".into());
+    }
+
     // Prefer checking headers first to avoid downloading non-HTML or huge responses.
+    let mut header_noindex = false;
+    let mut header_nofollow = false;
     if let Ok(head) = CLIENT.head(url).send().await {
         if head.status().is_success() {
+            let (n, nf) = crate::robots::header_directives(head.headers());
+            header_noindex = n;
+            header_nofollow = nf;
+
             if let Some(ct) = head.headers().get(reqwest::header::CONTENT_TYPE) {
                 let ct = ct.to_str().unwrap_or("");
                 if !ct.contains("text/html") {
@@ -176,6 +190,10 @@ pub async fn crawl(url: &str) -> Result<CrawledPage, Box<dyn std::error::Error +
     };
     let page_load_time_ms = fetch_start.elapsed().as_millis() as i32;
     let document = Html::parse_document(&body);
+
+    let (meta_noindex, meta_nofollow) = crate::robots::meta_directives(&document);
+    let noindex = header_noindex || meta_noindex;
+    let nofollow = header_nofollow || meta_nofollow;
 
     let title_sel = Selector::parse("title").unwrap();
     let title = document
@@ -249,7 +267,7 @@ pub async fn crawl(url: &str) -> Result<CrawledPage, Box<dyn std::error::Error +
                 }
             }
 
-            if !should_follow {
+            if !should_follow || nofollow {
                 continue;
             }
 
@@ -293,6 +311,7 @@ pub async fn crawl(url: &str) -> Result<CrawledPage, Box<dyn std::error::Error +
         content: raw_text,
         discovered_urls,
         metadata,
+        noindex,
     })
 }
 
@@ -310,6 +329,11 @@ pub async fn store_page(
     page: &CrawledPage,
     storage_tx: Option<mpsc::UnboundedSender<StorageTask>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if page.noindex {
+        println!("Skipping noindex: {}", url);
+        return Ok(());
+    }
+
     // Skip junk pages. Checked against page.content (script/style already
     // stripped by algorithm::extract), not the display snippet — previously
     // this ran against the snippet built from *unfiltered* text, so a page
@@ -413,7 +437,18 @@ pub async fn storage_worker(
 ) {
     while let Some(task) = rx.recv().await {
         if let Err(e) = process_storage_task(&pool, &task).await {
+            // Display alone on aws-sdk errors is often a terse top-level
+            // label ("dispatch failure") with the actually useful detail
+            // (DNS failure, TLS error, malformed URL, etc.) sitting in the
+            // error's source chain or its Debug output. Print both so a
+            // failure is actually diagnosable instead of a dead end.
             eprintln!("Storage task failed for {}: {}", task.url, e);
+            eprintln!("  debug: {:?}", e);
+            let mut source = e.source();
+            while let Some(s) = source {
+                eprintln!("  caused by: {}", s);
+                source = s.source();
+            }
         }
     }
 }
@@ -493,13 +528,20 @@ async fn process_storage_task(
 
         // Upload to B2
         let client = build_b2_client(&endpoint, &key_id, &app_key).await;
-        client
+        if let Err(e) = client
             .put_object()
             .bucket(&bucket)
             .key(&key)
             .body(Bytes::from(buf.clone()).into())
             .send()
-            .await?;
+            .await
+        {
+            eprintln!(
+                "B2 put_object failed (endpoint={:?}, bucket={:?}, key={:?}): {}",
+                endpoint, bucket, key, e
+            );
+            return Err(Box::new(e));
+        }
 
         // Record in DB
         let _ = sqlx::query(
