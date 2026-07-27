@@ -31,10 +31,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
-          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
-          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          STORAGE_KEY_ID: ${{ secrets.STORAGE_KEY_ID }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+          STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT }}
+          STORAGE_REGION: ${{ secrets.STORAGE_REGION }}
           CRAWL_TIMEOUT_SECS: "19200"
           CRAWL_DIRECTION: "front"
         run: timeout 19260 ./target/release/service-backend || true
@@ -65,10 +66,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
-          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
-          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          STORAGE_KEY_ID: ${{ secrets.STORAGE_KEY_ID }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+          STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT }}
+          STORAGE_REGION: ${{ secrets.STORAGE_REGION }}
           CRAWL_TIMEOUT_SECS: "19200"
           CRAWL_DIRECTION: "back"
         run: timeout 19260 ./target/release/service-backend || true
