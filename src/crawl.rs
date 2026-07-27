@@ -49,7 +49,28 @@ const SKIP_URL_PATTERNS: &[&str] = &[
     "crates.io",
     "codecov.io",
     "github.com/workflows/",
+    // Auto-generated shareable-snippet/playground permalinks — effectively
+    // unlimited in number, each nearly content-free (differing only by a
+    // URL-encoded code blob in the query string), and they crowd out real
+    // subpages in a domain's sitelinks. play.rust-lang.org's "?code=" links
+    // are the concrete case that showed up, but this pattern (a "?code="
+    // param carrying a full source snippet) is common to most online code
+    // playgrounds/REPLs, not just that one site.
+    "?code=",
 ];
+
+// Belt-and-suspenders alongside the ?code= pattern above: catches the same
+// class of auto-generated permalink under a different param name (many
+// pastebin/playground sites don't literally use "?code=") by flagging any
+// URL whose query string is implausibly long for a normal navigable page.
+const MAX_QUERY_STRING_LEN: usize = 300;
+
+fn has_excessive_query_string(url: &str) -> bool {
+    reqwest::Url::parse(url)
+        .ok()
+        .and_then(|u| u.query().map(|q| q.len() > MAX_QUERY_STRING_LEN))
+        .unwrap_or(false)
+}
 
 const JUNK_SIGNALS: &[&str] = &[
     "window.WIZ_global_data",
@@ -86,7 +107,7 @@ pub struct CrawledPage {
 }
 
 pub fn is_junk_url(url: &str) -> bool {
-    SKIP_URL_PATTERNS.iter().any(|p| url.contains(p))
+    SKIP_URL_PATTERNS.iter().any(|p| url.contains(p)) || has_excessive_query_string(url)
 }
 
 pub fn normalize_url(u: &str) -> Option<String> {
@@ -276,6 +297,7 @@ pub async fn crawl(url: &str) -> Result<CrawledPage, Box<dyn std::error::Error +
                 && absolute.starts_with("http")
                 && !BAD_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
                 && !SKIP_URL_PATTERNS.iter().any(|p| absolute.contains(p))
+                && !has_excessive_query_string(&absolute)
             {
                 if let Some(n) = normalize_url(&absolute) {
                     discovered_urls.push(n);
@@ -453,29 +475,34 @@ pub async fn storage_worker(
     }
 }
 
-// Backblaze B2's S3-compatible API needs a client pointed at B2's endpoint
-// with B2's own credentials — `aws_config::load_from_env()` only knows about
-// standard AWS_* env vars, so it silently connects to nothing useful (or
-// errors) when given B2_KEY_ID/B2_APPLICATION_KEY. This builds an explicit
-// client instead.
-async fn build_b2_client(endpoint: &str, key_id: &str, app_key: &str) -> aws_sdk_s3::Client {
-    let region = extract_region_from_endpoint(endpoint).unwrap_or_else(|| "us-west-004".to_string());
-    let creds = aws_credential_types::Credentials::new(key_id, app_key, None, None, "b2-static");
+// Points at any S3-compatible provider (Cloudflare R2, Backblaze B2,
+// Wasabi, MinIO, etc.) via generic env vars, rather than hardcoding one
+// provider's naming — swapping providers is then just a matter of changing
+// which secrets are set, no code change needed.
+//
+// STORAGE_REGION is optional: B2 endpoints embed a region code in the
+// hostname (s3.us-west-004.backblazeb2.com) that we can extract, but R2's
+// endpoints don't (<account-id>.r2.cloudflarestorage.com) — R2's own docs
+// say to just use "auto" in that case, which is also a safe default for
+// most other S3-compatible providers that don't strictly validate region.
+async fn build_s3_client(endpoint: &str, region: &str, key_id: &str, secret_key: &str) -> aws_sdk_s3::Client {
+    let creds = aws_credential_types::Credentials::new(key_id, secret_key, None, None, "static");
     let config = aws_sdk_s3::config::Builder::new()
         .behavior_version(aws_config::BehaviorVersion::latest())
-        .region(aws_sdk_s3::config::Region::new(region))
+        .region(aws_sdk_s3::config::Region::new(region.to_string()))
         .endpoint_url(endpoint)
         .credentials_provider(creds)
-        // B2's S3-compatible API expects path-style requests
-        // (https://endpoint/bucket/key) rather than virtual-hosted-style
-        // (https://bucket.endpoint/key).
+        // Most S3-compatible providers (including R2 and B2) expect
+        // path-style requests (https://endpoint/bucket/key) rather than
+        // virtual-hosted-style (https://bucket.endpoint/key).
         .force_path_style(true)
         .build();
     aws_sdk_s3::Client::from_conf(config)
 }
 
 // B2 endpoints look like https://s3.us-west-004.backblazeb2.com — the
-// region code is the middle segment.
+// region code is the middle segment. Used as a fallback when STORAGE_REGION
+// isn't explicitly set.
 fn extract_region_from_endpoint(endpoint: &str) -> Option<String> {
     let host = endpoint
         .trim_start_matches("https://")
@@ -483,6 +510,14 @@ fn extract_region_from_endpoint(endpoint: &str) -> Option<String> {
     let mut parts = host.split('.');
     parts.next()?; // "s3"
     parts.next().map(|s| s.to_string())
+}
+
+fn resolve_storage_region(endpoint: &str) -> String {
+    std::env::var("STORAGE_REGION")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| extract_region_from_endpoint(endpoint))
+        .unwrap_or_else(|| "auto".to_string())
 }
 
 async fn process_storage_task(
@@ -501,17 +536,16 @@ async fn process_storage_task(
         encoder.finish()?;
     }
 
-    // Try B2 if configured (matches the env vars your GitHub Actions
-    // workflow already sets: B2_BUCKET_NAME, B2_ENDPOINT, B2_KEY_ID,
-    // B2_APPLICATION_KEY), otherwise fall back to disk.
-    let b2_config = (
-        std::env::var("B2_BUCKET_NAME"),
-        std::env::var("B2_ENDPOINT"),
-        std::env::var("B2_KEY_ID"),
-        std::env::var("B2_APPLICATION_KEY"),
+    // Try object storage if configured (any S3-compatible provider — R2,
+    // B2, Wasabi, MinIO, etc. — via generic env vars), otherwise disk.
+    let storage_config = (
+        std::env::var("STORAGE_BUCKET"),
+        std::env::var("STORAGE_ENDPOINT"),
+        std::env::var("STORAGE_KEY_ID"),
+        std::env::var("STORAGE_SECRET_KEY"),
     );
 
-    if let (Ok(bucket), Ok(endpoint), Ok(key_id), Ok(app_key)) = b2_config {
+    if let (Ok(bucket), Ok(endpoint), Ok(key_id), Ok(secret_key)) = storage_config {
         let key = format!("pages/{}.zst", task.content_hash);
 
         // Ensure table exists
@@ -526,8 +560,9 @@ async fn process_storage_task(
         .execute(pool)
         .await;
 
-        // Upload to B2
-        let client = build_b2_client(&endpoint, &key_id, &app_key).await;
+        // Upload to object storage
+        let region = resolve_storage_region(&endpoint);
+        let client = build_s3_client(&endpoint, &region, &key_id, &secret_key).await;
         if let Err(e) = client
             .put_object()
             .bucket(&bucket)
@@ -537,8 +572,8 @@ async fn process_storage_task(
             .await
         {
             eprintln!(
-                "B2 put_object failed (endpoint={:?}, bucket={:?}, key={:?}): {}",
-                endpoint, bucket, key, e
+                "Storage put_object failed (endpoint={:?}, region={:?}, bucket={:?}, key={:?}): {}",
+                endpoint, region, bucket, key, e
             );
             return Err(Box::new(e));
         }
@@ -583,19 +618,20 @@ pub async fn prune_old_pages(pool: &PgPool) -> Result<usize, Box<dyn std::error:
     .await?
     .len();
 
-    // Optionally prune page_blobs and B2 objects
-    if let (Ok(bucket), Ok(endpoint), Ok(key_id), Ok(app_key)) = (
-        std::env::var("B2_BUCKET_NAME"),
-        std::env::var("B2_ENDPOINT"),
-        std::env::var("B2_KEY_ID"),
-        std::env::var("B2_APPLICATION_KEY"),
+    // Optionally prune page_blobs and remote storage objects
+    if let (Ok(bucket), Ok(endpoint), Ok(key_id), Ok(secret_key)) = (
+        std::env::var("STORAGE_BUCKET"),
+        std::env::var("STORAGE_ENDPOINT"),
+        std::env::var("STORAGE_KEY_ID"),
+        std::env::var("STORAGE_SECRET_KEY"),
     ) {
         let rows: Vec<(String,String)> = sqlx::query_as("SELECT content_hash, s3_key FROM page_blobs WHERE uploaded_at < now() - ($1::interval)")
             .bind(format!("{} days", days))
             .fetch_all(pool)
             .await?;
         if !rows.is_empty() {
-            let client = build_b2_client(&endpoint, &key_id, &app_key).await;
+            let region = resolve_storage_region(&endpoint);
+            let client = build_s3_client(&endpoint, &region, &key_id, &secret_key).await;
             for (_hash, key) in rows.iter() {
                 let _ = client.delete_object().bucket(&bucket).key(key).send().await;
             }
