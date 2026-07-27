@@ -139,6 +139,21 @@ button{
     gap: 8px 24px;
 }
 
+.sitelink {
+    /* Grid items default to min-width:auto, which lets an unbreakable
+       string (a long URL with no spaces) force the item wider than its
+       track and overlap the next column — this is what was happening. */
+    min-width: 0;
+}
+
+.sitelink a,
+.sitelink .url {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .sitelink a {
     font-size: 16px;
     color: #2563eb;
