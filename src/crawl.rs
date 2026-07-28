@@ -560,17 +560,40 @@ async fn process_storage_task(
         .execute(pool)
         .await;
 
-        // Upload to object storage
+        // Upload to object storage.
+        //
+        // NOTE: aws-sdk-rust's built-in endpoint resolver is confirmed
+        // buggy for S3-compatible providers that expose their API behind a
+        // multi-segment path prefix (awslabs/aws-sdk-rust#1387 — literally
+        // reproduces Supabase's exact endpoint shape). A trailing slash on
+        // the endpoint fixes it for some operations but not reliably for
+        // put_object, so we bypass the automatic resolver entirely here and
+        // force the correct URI ourselves via the SDK's documented
+        // customize/mutate_request hook, rather than trusting whatever path
+        // it would otherwise construct.
         let region = resolve_storage_region(&endpoint);
         let client = build_s3_client(&endpoint, &region, &key_id, &secret_key).await;
-        if let Err(e) = client
+        let forced_uri = format!(
+            "{}/{}/{}",
+            endpoint.trim_end_matches('/'),
+            bucket.trim_matches('/'),
+            key
+        );
+        let put_result = client
             .put_object()
             .bucket(&bucket)
             .key(&key)
             .body(Bytes::from(buf.clone()).into())
+            .customize()
+            .mutate_request(move |req| {
+                if let Err(e) = req.set_uri(forced_uri.clone()) {
+                    eprintln!("Failed to override request URI to {:?}: {}", forced_uri, e);
+                }
+            })
             .send()
-            .await
-        {
+            .await;
+
+        if let Err(e) = put_result {
             eprintln!(
                 "Storage put_object failed (endpoint={:?}, region={:?}, bucket={:?}, key={:?}): {}",
                 endpoint, region, bucket, key, e
@@ -633,7 +656,24 @@ pub async fn prune_old_pages(pool: &PgPool) -> Result<usize, Box<dyn std::error:
             let region = resolve_storage_region(&endpoint);
             let client = build_s3_client(&endpoint, &region, &key_id, &secret_key).await;
             for (_hash, key) in rows.iter() {
-                let _ = client.delete_object().bucket(&bucket).key(key).send().await;
+                let forced_uri = format!(
+                    "{}/{}/{}",
+                    endpoint.trim_end_matches('/'),
+                    bucket.trim_matches('/'),
+                    key
+                );
+                let _ = client
+                    .delete_object()
+                    .bucket(&bucket)
+                    .key(key)
+                    .customize()
+                    .mutate_request(move |req| {
+                        if let Err(e) = req.set_uri(forced_uri.clone()) {
+                            eprintln!("Failed to override request URI to {:?}: {}", forced_uri, e);
+                        }
+                    })
+                    .send()
+                    .await;
             }
             let _ = sqlx::query("DELETE FROM page_blobs WHERE uploaded_at < now() - ($1::interval)")
                 .bind(format!("{} days", days))
