@@ -28,11 +28,7 @@ const BAD_EXTENSIONS: &[&str] = &[
 ];
 
 const NO_FOLLOW_DOMAINS: &[&str] = &[
-    "twitter.com", "x.com", "facebook.com", "instagram.com",
-    "tiktok.com", "linkedin.com", "pinterest.com", "snapchat.com",
-    "youtube.com", "youtu.be", "twitch.tv", "discord.com",
-    "discord.gg", "t.me", "telegram.org", "whatsapp.com",
-    "reddit.com", "news.ycombinator.com", "medium.com",
+    "pornhub.com"
 ];
 
 const SKIP_URL_PATTERNS: &[&str] = &[
@@ -57,6 +53,7 @@ const SKIP_URL_PATTERNS: &[&str] = &[
     // param carrying a full source snippet) is common to most online code
     // playgrounds/REPLs, not just that one site.
     "?code=",
+    "?edition="
 ];
 
 // Belt-and-suspenders alongside the ?code= pattern above: catches the same
