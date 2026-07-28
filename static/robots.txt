@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://serv1ce.pages.dev/sitemap.xml
