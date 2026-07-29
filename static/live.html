@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Service — LIVE COUNTER!!!</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+        height:100%;
+        background: radial-gradient(circle at center, #1a0033 0%, #000 100%);
+        overflow:hidden;
+        font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
+    }
+
+    .close-btn {
+        position:fixed;
+        top:16px; right:16px;
+        z-index:1000;
+        width:48px; height:48px;
+        border-radius:50%;
+        border:3px solid #fff;
+        background:#ff0033;
+        color:#fff;
+        font-size:26px;
+        font-weight:bold;
+        line-height:1;
+        cursor:pointer;
+        box-shadow:0 0 20px #ff0033;
+    }
+    .close-btn:hover { background:#ff3355; }
+
+    .counter-wrap {
+        position:fixed;
+        inset:0;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        z-index:10;
+        pointer-events:none;
+    }
+
+    .counter-label {
+        font-size:clamp(20px, 4vw, 42px);
+        color:#ffee00;
+        text-shadow:0 0 10px #ff00ff, 0 0 20px #ff00ff;
+        animation: shake 0.15s infinite;
+        letter-spacing:2px;
+    }
+
+    .counter-number {
+        font-size:clamp(48px, 12vw, 160px);
+        font-weight:900;
+        color:#00ffcc;
+        text-shadow:
+            0 0 10px #00ffcc,
+            0 0 30px #ff00ff,
+            0 0 60px #ff00ff;
+        animation: pulse 0.6s ease-in-out infinite;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .counter-sub {
+        margin-top:10px;
+        font-size:clamp(14px, 2vw, 20px);
+        color:#fff;
+        opacity:0.8;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform:scale(1); }
+        50% { transform:scale(1.04); }
+    }
+    @keyframes shake {
+        0%   { transform:rotate(-1deg); }
+        50%  { transform:rotate(1deg); }
+        100% { transform:rotate(-1deg); }
+    }
+
+    /* Ad slots — tiled around the edges. Reuses the real a-ads.com unit
+       already embedded on the homepage (data-aa=2448733), just placed in
+       more spots, because the whole point of this page is being an
+       intentional throwback to obnoxious ad-saturated web design. */
+    .ad-slot {
+        position:fixed;
+        z-index:5;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        overflow:hidden;
+        background:#111;
+        border:2px dashed #ff00ff;
+    }
+    .ad-slot iframe { width:100%; height:100%; border:0; }
+
+    .ad-top-left     { top:0; left:0; width:250px; height:250px; }
+    .ad-top-right    { top:0; right:0; width:250px; height:250px; }
+    .ad-bottom-left  { bottom:0; left:0; width:250px; height:250px; }
+    .ad-bottom-right { bottom:0; right:0; width:250px; height:250px; }
+    .ad-top-strip    { top:0; left:260px; right:260px; height:90px; }
+    .ad-bottom-strip { bottom:0; left:260px; right:260px; height:90px; }
+
+    @media (max-width: 700px) {
+        .ad-top-left, .ad-top-right, .ad-bottom-left, .ad-bottom-right { width:120px; height:120px; }
+        .ad-top-strip, .ad-bottom-strip { display:none; }
+    }
+</style>
+</head>
+<body>
+
+<button class="close-btn" onclick="window.location.href='index.html'" aria-label="Close">✕</button>
+
+<div class="ad-slot ad-top-left"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+<div class="ad-slot ad-top-right"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+<div class="ad-slot ad-bottom-left"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+<div class="ad-slot ad-bottom-right"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+<div class="ad-slot ad-top-strip"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+<div class="ad-slot ad-bottom-strip"><iframe data-aa=2448733 src="//acceptable.a-ads.com/2448733/?size=Adaptive"></iframe></div>
+
+<div class="counter-wrap">
+    <div class="counter-label">🔥 PAGES CRAWLED RIGHT NOW 🔥</div>
+    <div class="counter-number" id="liveCount">0</div>
+    <div class="counter-sub">updating live... probably</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://nxipygonwjlxozfsrbsn.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_lt5n95QnheWul-URwQHtog_XBHya10T";
+
+const el = document.getElementById("liveCount");
+let displayed = 0;
+let real = 0;
+
+async function fetchRealCount() {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_page_count`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: "{}"
+        });
+        const count = await response.json();
+        if (typeof count === "number") {
+            real = count;
+            if (displayed === 0) displayed = count; // snap on first load, no long count-up from 0
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// Smoothly ticks the displayed number toward the real fetched count —
+// re-fetched periodically so this stays honest rather than just making
+// up a number that climbs forever regardless of reality.
+function tick() {
+    if (displayed < real) {
+        displayed += Math.max(1, Math.ceil((real - displayed) / 20));
+    }
+    el.textContent = displayed.toLocaleString();
+    requestAnimationFrame(tick);
+}
+
+fetchRealCount().then(tick);
+setInterval(fetchRealCount, 15000);
+</script>
+
+</body>
+</html>
