@@ -6,10 +6,27 @@ const button = document.getElementById("searchButton");
 const results = document.getElementById("results");
 let currentPage = 0;
 
-async function search(page = 0) {
+// `updateHistory` is false when we're reacting to a browser back/forward
+// navigation (popstate) or restoring state on initial page load — in both
+// of those cases the URL already reflects where we are, so pushing a new
+// history entry would be wrong (it'd break the back button rather than fix
+// it, by inserting a duplicate entry every time the user navigates).
+async function search(page = 0, updateHistory = true) {
     const query = input.value.trim();
     if (query === "") return;
     currentPage = page;
+
+    if (updateHistory) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("q", query);
+        if (page > 0) {
+            url.searchParams.set("page", page);
+        } else {
+            url.searchParams.delete("page");
+        }
+        history.pushState({ query, page }, "", url);
+    }
+
     results.innerHTML = "Searching...";
     try {
         const response = await fetch(
@@ -84,3 +101,31 @@ button.onclick = () => search(0);
 input.addEventListener("keydown", e => {
     if (e.key === "Enter") search(0);
 });
+
+// Browser back/forward — re-run whatever search the URL now reflects,
+// without pushing yet another history entry (popstate fires when
+// navigating through existing entries, it doesn't create new ones).
+window.addEventListener("popstate", () => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const page = parseInt(params.get("page"), 10) || 0;
+    if (q) {
+        input.value = q;
+        search(page, false);
+    } else {
+        input.value = "";
+        results.innerHTML = "";
+    }
+});
+
+// A bookmarked or shared link (e.g. yoursite.com/?q=service) should run
+// that search immediately on load, instead of landing on an empty homepage.
+(function restoreFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const page = parseInt(params.get("page"), 10) || 0;
+    if (q) {
+        input.value = q;
+        search(page, false);
+    }
+})();
