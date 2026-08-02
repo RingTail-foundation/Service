@@ -59,22 +59,39 @@ struct AppState {
 
 #[derive(Clone, Copy, Debug)]
 enum CrawlDirection {
-    Front, // oldest pending rows first (id ASC) — works down the existing backlog
-    Back,  // newest pending rows first (id DESC) — works from freshly discovered URLs
+    Front,  // oldest pending rows first (id ASC) — works down the existing backlog
+    Back,   // newest pending rows first (id DESC) — works from freshly discovered URLs
+    Middle, // closest to the current midpoint of pending ids — see note below
 }
 
 impl CrawlDirection {
     fn from_env() -> Self {
         match std::env::var("CRAWL_DIRECTION").unwrap_or_default().to_lowercase().as_str() {
             "back" | "backward" => CrawlDirection::Back,
+            "middle" | "center" | "centre" => CrawlDirection::Middle,
             _ => CrawlDirection::Front,
         }
     }
 
-    fn order_sql(&self) -> &'static str {
+    // Full ORDER BY expression, not just a direction keyword — Middle needs
+    // a genuinely different shape (distance from a computed midpoint), not
+    // a plain id ASC/DESC.
+    //
+    // Why this exists: if Front always claims the oldest pending id and Back
+    // always claims the newest, the middle of the id range only gets
+    // reached once both workers have crawled all the way through to meet —
+    // but newly-discovered URLs keep getting inserted with ever-higher ids
+    // while crawling continues, so Back can end up perpetually consuming
+    // fresh discoveries instead of ever working down toward the middle of
+    // the *original* backlog. A dedicated Middle worker closes that gap
+    // directly instead of relying on Front/Back eventually converging.
+    fn order_by_clause(&self) -> &'static str {
         match self {
-            CrawlDirection::Front => "ASC",
-            CrawlDirection::Back => "DESC",
+            CrawlDirection::Front => "id ASC",
+            CrawlDirection::Back => "id DESC",
+            CrawlDirection::Middle => {
+                "ABS(id - (SELECT (MIN(id) + MAX(id)) / 2 FROM crawl_queue WHERE status = 'pending')) ASC"
+            }
         }
     }
 }
@@ -193,16 +210,18 @@ async fn run_crawler_with_politeness(
     direction: CrawlDirection,
 ) {
     let politeness = Duration::from_secs(1);
-    // Direction only controls which end of the backlog we prefer to work from
-    // (front = oldest pending ids, back = newest). Correctness against duplicate
-    // claims comes from the atomic UPDATE...RETURNING below regardless of order —
-    // this just keeps two concurrently-running crawlers from converging on the
-    // same rows for most of their run.
+    // Direction controls which part of the backlog this worker prefers to
+    // claim from (front = oldest pending ids, back = newest, middle =
+    // closest to the current pending-id midpoint — see order_by_clause's
+    // doc comment for why middle exists as its own direction). Correctness
+    // against duplicate claims comes from the atomic UPDATE...RETURNING
+    // below regardless of ordering — this just keeps concurrently-running
+    // crawlers from converging on the same rows for most of their run.
     let claim_sql = format!(
         "UPDATE crawl_queue SET status = 'processing', attempted_at = now() WHERE id = (
-            SELECT id FROM crawl_queue WHERE (status = 'pending' OR (status = 'failed' AND attempted_at < now() - INTERVAL '1 hour')) ORDER BY id {} LIMIT 1
+            SELECT id FROM crawl_queue WHERE (status = 'pending' OR (status = 'failed' AND attempted_at < now() - INTERVAL '1 hour')) ORDER BY {} LIMIT 1
         ) RETURNING id, url",
-        direction.order_sql()
+        direction.order_by_clause()
     );
     loop {
         // Atomically claim a pending row to avoid races between workers.
