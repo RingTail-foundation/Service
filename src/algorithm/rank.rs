@@ -1,40 +1,91 @@
 // algorithm/rank.rs
 //
-// Scoring. Before this file, ranking was purely:
-//     ts_rank(search_vector, query) * log(2 + inbound_links)
-// which has no notion of "the query IS the name of this site" — so a page
-// that mentions a brand once in passing can outrank that brand's own
-// homepage, as long as it has slightly denser keyword usage. That's the
-// Discord-vs-Rust-meetup problem from the screenshots.
+// Scoring. History of this file:
 //
-// We fix this with two multiplicative boosts computed in SQL:
-//   - domain_boost: query text matches the registrable host almost exactly
-//     (e.g. query "discord" against host "discord.com")
-//   - title_boost:  query text appears in the title, weighted higher when
-//     it's at/near the start of the title (closer to how a person reads it)
+//   v1: ts_rank(search_vector, query) * log(2 + inbound_links)
+//       No notion of "the query IS the name of this site", so a page that
+//       mentions a brand once could outrank that brand's own homepage.
 //
-// Both are cheap CASE WHEN expressions so they run inside the same query
-// instead of requiring a second round trip.
+//   v2: added domain_match_boost / title_match_boost / homepage_boost /
+//       structural_boost as multiplicative factors.
+//
+//   v3 (this version): fixes correctness bugs in the v2 boosts and replaces
+//       the relevance core. See the numbered notes below — each one maps to
+//       a function in SCORING_FUNCTIONS_SQL.
+//
+// The v3 changes, in order of how much they affect result quality:
+//
+//   1. ts_rank -> ts_rank_cd with normalization 33 (= 1|32).
+//      ts_rank scores term *frequency*: it rewards a page for repeating a
+//      query term, and has no idea whether the terms appear next to each
+//      other or 40,000 words apart. ts_rank_cd is cover density ranking —
+//      it scores how tightly the query terms cluster, which is much closer
+//      to what a person means by "this page is about my query". The
+//      normalization bits matter just as much: 1 divides by the log of
+//      document length (so a 50-page document stops beating a focused
+//      article purely by being long), and 32 maps the result into 0..1.
+//      Bounding the relevance core is what makes the multiplicative boosts
+//      below behave predictably instead of being swamped by an unbounded
+//      base score.
+//
+//   2. LIKE-injection fix. v2 interpolated the raw user query straight into
+//      a LIKE pattern, so a query containing % or _ was silently treated as
+//      a wildcard: searching "50%" made `title LIKE '%50%%'` match titles
+//      containing just "50", and a query of "%" matched literally every
+//      page at boost 2.0. like_escape() neutralizes \ % _ before use.
+//
+//   3. Word-boundary matching instead of raw substring. v2's
+//      `host LIKE '%q%'` fired on any fragment, so a 2-letter query matched
+//      almost every domain and handed out a meaningless 1.8x. v3 requires
+//      the match to fall on a token boundary and requires >=4 chars before
+//      the fuzzy tier applies at all. Same fix for titles, so "art" stops
+//      boosting a page titled "Smart Cartography".
+//
+//   4. Saturating authority. log(2 + inbound_links) grows without limit, so
+//      a site with a sitewide footer link repeated across 200k of its own
+//      pages could buy rank indefinitely. v3 clamps the count before the
+//      log, which keeps the signal but caps what it can win.
+//
+//   5. A hard cap on combined boost. The v2 factors multiplied out to as
+//      much as 4.0 * 2.0 * 1.3 * 1.15 * 1.05 ~= 12.5x, enough for a
+//      barely-relevant page to beat a highly relevant one on boosts alone.
+//      v3 caps the product at 8.0 so boosts reorder near-ties instead of
+//      overriding relevance outright.
+//
+//   6. Two new signals, both free from columns the crawler already fills:
+//      hygiene_boost (https, URL depth, tracking-parameter cruft) and
+//      content_boost (thin-content and no-heading penalties).
+//
+// Every new function is NULL-safe by construction: any row not yet recrawled
+// under the current extraction code has NULLs in the structural columns, and
+// every CASE here falls through to a neutral 1.0 rather than penalizing a
+// page for not having been reprocessed yet.
 
 /// Full search query text. Bind order: $1 = raw query string (used for
-/// ts_rank + boosts), $2 = limit, $3 = offset.
+/// ts_rank_cd + boosts), $2 = limit, $3 = offset.
 ///
-/// Requires the `pages` table to have: title, url, snippet, search_vector,
-/// inbound_links (all already present) — no schema change needed for this
-/// part specifically (see migrations/002_algorithm_upgrade.sql for the
-/// separate body-text indexing fix).
+/// The tsquery is computed once in a CTE and joined, rather than being
+/// re-parsed in both the SELECT list and the WHERE clause as it was in v2.
 pub const SEARCH_SQL: &str = r#"
-SELECT title, url, snippet,
+WITH q AS (
+    SELECT websearch_to_tsquery('english', $1) AS tsq
+)
+SELECT p.title, p.url, p.snippet,
     (
-        ts_rank(search_vector, websearch_to_tsquery('english', $1))
-        * log(2 + inbound_links)
-        * domain_match_boost(url, $1)
-        * title_match_boost(title, $1)
-        * homepage_boost(url)
-        * structural_boost(is_canonical, has_structured_data, mobile_friendly)
+        ts_rank_cd(p.search_vector, q.tsq, 33)
+        * authority_weight(p.inbound_links)
+        * least(
+            domain_match_boost(p.url, $1)
+            * title_match_boost(p.title, $1)
+            * homepage_boost(p.url)
+            * structural_boost(p.is_canonical, p.has_structured_data, p.mobile_friendly)
+            * hygiene_boost(p.url, p.is_https, p.url_depth)
+            * content_boost(p.content_length, p.heading_count),
+            8.0
+        )
     )::double precision AS score
-FROM pages
-WHERE search_vector @@ websearch_to_tsquery('english', $1)
+FROM pages p, q
+WHERE p.search_vector @@ q.tsq
 ORDER BY score DESC
 LIMIT $2 OFFSET $3
 "#;
@@ -43,39 +94,83 @@ LIMIT $2 OFFSET $3
 /// than buried in a .sql file with no comments) so the scoring logic and
 /// its rationale live next to each other.
 pub const SCORING_FUNCTIONS_SQL: &str = r#"
+-- Escape LIKE metacharacters in untrusted text. Without this, a query
+-- containing % or _ acts as a wildcard inside every boost function below:
+-- a bare "%" query would match every title and collect a 2.0x boost.
+CREATE OR REPLACE FUNCTION like_escape(t TEXT)
+RETURNS TEXT AS $$
+    SELECT replace(replace(replace(coalesce(t, ''), '\', '\\'), '%', '\%'), '_', '\_');
+$$ LANGUAGE sql IMMUTABLE;
+
+-- Saturating link authority. Clamped before the log so that a sitewide
+-- self-link repeated across a huge site cannot buy unbounded rank; 5000
+-- inbound links and 500000 inbound links score the same.
+CREATE OR REPLACE FUNCTION authority_weight(inbound BIGINT)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT log(2 + least(greatest(coalesce(inbound, 0), 0), 5000)::numeric)::double precision;
+$$ LANGUAGE sql IMMUTABLE;
+
 -- Boost when the query is essentially the site's own name, e.g. searching
 -- "discord" should strongly favor discord.com over pages that merely
--- mention Discord. Compares query against the host with TLD stripped.
+-- mention Discord.
+--
+-- The fuzzy tier requires (a) at least 4 characters of query, and (b) the
+-- match to land on a label boundary in the host, so "discord" matches
+-- discord.com and app.discord.com but "art" no longer matches
+-- smartblog.example.
 CREATE OR REPLACE FUNCTION domain_match_boost(page_url TEXT, query TEXT)
 RETURNS DOUBLE PRECISION AS $$
 DECLARE
     host TEXT;
     bare_host TEXT;
-    q TEXT := lower(trim(query));
+    q TEXT := lower(trim(coalesce(query, '')));
 BEGIN
-    host := lower(regexp_replace(page_url, '^https?://(www\.)?([^/]+).*$', '\2'));
-    bare_host := regexp_replace(host, '\.[a-z]{2,}$', '');
-    IF host = q OR bare_host = q THEN
-        RETURN 4.0;
-    ELSIF host LIKE ('%' || q || '%') THEN
-        RETURN 1.8;
-    ELSE
+    IF q = '' THEN
         RETURN 1.0;
     END IF;
+
+    host := lower(regexp_replace(coalesce(page_url, ''), '^https?://(www\.)?([^/]+).*$', '\2'));
+    bare_host := regexp_replace(host, '\.[a-z]{2,}$', '');
+
+    IF host = q OR bare_host = q THEN
+        RETURN 4.0;
+    END IF;
+
+    -- Collapse separators so "protonmail" still matches "proton-mail.com".
+    IF replace(replace(bare_host, '-', ''), '.', '') = replace(replace(q, '-', ''), ' ', '') THEN
+        RETURN 3.2;
+    END IF;
+
+    IF length(q) >= 4 AND host ~ ('(^|[.-])' || regexp_replace(q, '([^a-z0-9])', '\\\1', 'g') || '([.-]|$)') THEN
+        RETURN 1.8;
+    END IF;
+
+    RETURN 1.0;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Boost when the query text appears in the title, extra weight if it's the
 -- leading words (how a person actually judges title relevance).
+--
+-- v3: matches on word boundaries, so "art" no longer boosts "Smart
+-- Cartography", and escapes LIKE metacharacters in the prefix test.
 CREATE OR REPLACE FUNCTION title_match_boost(page_title TEXT, query TEXT)
 RETURNS DOUBLE PRECISION AS $$
 DECLARE
-    t TEXT := lower(trim(page_title));
-    q TEXT := lower(trim(query));
+    t TEXT := lower(trim(coalesce(page_title, '')));
+    q TEXT := lower(trim(coalesce(query, '')));
+    q_re TEXT;
 BEGIN
-    IF t LIKE (q || '%') THEN
+    IF q = '' OR t = '' THEN
+        RETURN 1.0;
+    END IF;
+
+    -- Escape regex metacharacters so the query is matched literally.
+    q_re := regexp_replace(q, '([^a-z0-9 ])', '\\\1', 'g');
+
+    IF t LIKE (like_escape(q) || '%') THEN
         RETURN 2.0;
-    ELSIF t LIKE ('%' || q || '%') THEN
+    ELSIF t ~ ('(^|\W)' || q_re || '(\W|$)') THEN
         RETURN 1.4;
     ELSE
         RETURN 1.0;
@@ -88,7 +183,7 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 CREATE OR REPLACE FUNCTION homepage_boost(page_url TEXT)
 RETURNS DOUBLE PRECISION AS $$
 BEGIN
-    IF page_url ~ '^https?://(www\.)?[^/]+/?$' THEN
+    IF coalesce(page_url, '') ~ '^https?://(www\.)?[^/]+/?$' THEN
         RETURN 1.3;
     ELSE
         RETURN 1.0;
@@ -113,6 +208,63 @@ BEGIN
         (CASE WHEN is_canonical = false THEN 0.7 ELSE 1.0 END)
         * (CASE WHEN has_structured_data = true THEN 1.15 ELSE 1.0 END)
         * (CASE WHEN mobile_friendly = true THEN 1.05 ELSE 1.0 END);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- URL hygiene. Three cheap, honest quality signals:
+--   * https: a plain-http page in the current era is usually stale or
+--     unmaintained, and on a privacy-first engine it is also a page that
+--     leaks its visitors' reading to the network.
+--   * depth: /a/b/c/d/e/f is far more often pagination, a faceted filter
+--     view, or an archive stub than it is the best answer to a query.
+--   * tracking cruft: a URL carrying utm_*, fbclid, gclid or a session id
+--     is a syndicated/campaign copy of a canonical page, so prefer the
+--     clean original when both are indexed.
+CREATE OR REPLACE FUNCTION hygiene_boost(
+    page_url TEXT,
+    is_https BOOLEAN,
+    url_depth INTEGER
+)
+RETURNS DOUBLE PRECISION AS $$
+DECLARE
+    u TEXT := lower(coalesce(page_url, ''));
+BEGIN
+    RETURN
+        (CASE WHEN is_https = false THEN 0.75 ELSE 1.0 END)
+        * (CASE
+              WHEN url_depth IS NULL THEN 1.0
+              WHEN url_depth <= 2 THEN 1.0
+              WHEN url_depth <= 4 THEN 0.95
+              ELSE 0.85
+           END)
+        * (CASE
+              WHEN u ~ '[?&](utm_[a-z]+|fbclid|gclid|mc_eid|sessionid|phpsessid)=' THEN 0.8
+              ELSE 1.0
+           END);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Content substance. A page with almost no text that nonetheless matches
+-- the query is usually a tag page, a login wall, an empty search-results
+-- page, or a redirect stub — all things a person did not want. A total
+-- absence of headings is a weaker version of the same signal.
+--
+-- Both columns are NULL on rows crawled before metadata extraction landed,
+-- and NULL returns a neutral 1.0 here.
+CREATE OR REPLACE FUNCTION content_boost(
+    content_length INTEGER,
+    heading_count INTEGER
+)
+RETURNS DOUBLE PRECISION AS $$
+BEGIN
+    RETURN
+        (CASE
+              WHEN content_length IS NULL THEN 1.0
+              WHEN content_length < 300 THEN 0.6
+              WHEN content_length < 800 THEN 0.9
+              ELSE 1.0
+           END)
+        * (CASE WHEN heading_count = 0 THEN 0.9 ELSE 1.0 END);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 "#;

@@ -1,3 +1,111 @@
-<html>
-  <p>Thanks our dearest sponsors</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f14" media="(prefers-color-scheme: dark)">
+    <title>About — Service</title>
+    <meta name="description" content="How Service works: an independent crawler, an independent index, and no tracking of the people who search it.">
+    <link rel="stylesheet" href="../style.css?v=3">
+</head>
+<body>
+
+<div class="page">
+
+    <header class="topbar">
+        <a class="topbar__mark" href="../" style="display:flex" aria-label="Service home">Service</a>
+        <nav class="topbar__nav" aria-label="Site">
+            <a href="../live.html">Live crawl</a>
+            <a href="../">Search</a>
+        </nav>
+    </header>
+
+    <main class="content" style="padding-block: 30px 60px">
+
+        <h1 style="font-size:32px;letter-spacing:-0.025em;line-height:1.2;margin-bottom:14px">
+            An index of our own
+        </h1>
+        <p class="tagline" style="max-width:60ch;margin-bottom:34px;text-align:left">
+            Service is not a front end for someone else&apos;s search results. It runs its
+            own crawler, builds its own index, and ranks pages with its own scoring code.
+        </p>
+
+        <h2 style="font-size:19px;margin-bottom:8px">What we don&apos;t do</h2>
+        <ul class="trust" style="justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:10px;margin-top:0;margin-bottom:34px;font-size:15px">
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
+                </svg>
+                No tracking cookies, and no third-party analytics on this page.
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
+                </svg>
+                No search profiles. Your queries are not attached to an identity.
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 7h16M4 12h10M4 17h7" />
+                </svg>
+                No webfonts from a third-party CDN — the interface uses your system fonts.
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+                Outbound result links carry <code style="font-family:var(--font-mono);font-size:0.9em">rel="noreferrer"</code>, so
+                sites you visit don&apos;t learn what you searched.
+            </li>
+        </ul>
+
+        <h2 style="font-size:19px;margin-bottom:8px">How ranking works</h2>
+        <p class="result__snippet" style="max-width:64ch;margin-bottom:14px">
+            A page&apos;s score starts from how tightly your search terms cluster together
+            in its text, normalised so that a very long document can&apos;t win simply by
+            being long. That base relevance is then adjusted by a small, bounded set of
+            signals: how many other indexed pages link to it, whether the query is
+            essentially the site&apos;s own name, whether it&apos;s a homepage or a deep
+            subpage, whether it declares itself canonical, and whether it has enough
+            substance to be worth reading.
+        </p>
+        <p class="result__snippet" style="max-width:64ch;margin-bottom:34px">
+            Two of those signals exist because of what this engine is for: pages served
+            over plain HTTP are demoted, and URLs carrying campaign-tracking parameters
+            are demoted in favour of the clean original.
+        </p>
+
+        <h2 style="font-size:19px;margin-bottom:8px">Honest limitations</h2>
+        <p class="result__snippet" style="max-width:64ch;margin-bottom:34px">
+            The index is small. A commercial engine has crawled a scale of the web that
+            this project has not, so there will be queries Service simply cannot answer
+            yet. Where it can compete is depth on the topics it has actually crawled —
+            and on not treating the person searching as the product.
+        </p>
+
+        <h2 style="font-size:19px;margin-bottom:8px">Sponsors</h2>
+        <p class="result__snippet" style="max-width:64ch">
+            Service is kept running by its sponsors and by the ad slots on either side of
+            the page. Those ads are contextless — they are not targeted using anything
+            about you, because we don&apos;t collect anything to target with. Thank you to
+            everyone chipping in.
+        </p>
+
+    </main>
+
+    <footer class="footer">
+        <span>Service — independent search</span>
+        <nav aria-label="Footer">
+            <a href="../">Search</a>
+            <a href="../live.html">Live crawl</a>
+            <a href="../robots.txt">robots.txt</a>
+        </nav>
+    </footer>
+
+</div>
+
+</body>
 </html>

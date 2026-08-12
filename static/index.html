@@ -3,78 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f14" media="(prefers-color-scheme: dark)">
+
+    <title>Service — privacy-first search</title>
+    <meta name="description" content="Service is an independent, privacy-first search engine. No tracking cookies, no search profiles, no ad targeting — just results from our own web index.">
+
     <meta name="google-site-verification" content="dvKKYev6im0XU4AEzXiDjxSktZTi5qMS__k-Yqq38yk" />
     <meta name="msvalidate.01" content="B38C44813DB0ABC9AA2C3E19D521160E" />
-    <title>Service Search</title>
 
-    <link rel="stylesheet" href="style.css">
+    <meta property="og:title" content="Service — privacy-first search">
+    <meta property="og:description" content="An independent search engine that does not track you.">
+    <meta property="og:type" content="website">
+
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
-<div class="hero">
-    <h1>Service</h1>
-    <div class="search-box">
-        <input
-            id="searchInput"
-            type="text"
-            placeholder="Search the web..."
-        >
-        <button id="searchButton">
-            Search
-        </button>
-    </div>
-    <p id="pageCount" class="page-count"></p>
+<!-- Ad rails. Both a-ads units are unchanged and stay pinned to the left and
+     right edges on desktop; the checkbox-based dismiss behaviour from the
+     original embed is preserved. Below 880px they reflow into the .ad-shelf
+     row underneath the content, because a 100px side rail at that width
+     would leave nothing readable in the middle. -->
+<div class="ad-shelf">
+    <input class="ad-toggle" autocomplete="off" type="checkbox" id="adDismissLeft" hidden>
+    <aside class="ad-rail ad-rail--left" aria-label="Advertisement">
+        <label class="ad-rail__dismiss" for="adDismissLeft" title="Hide this ad">
+            <span class="sr-only">Hide advertisement</span>
+            <svg viewBox="0 0 490 490" fill="currentColor" aria-hidden="true">
+                <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337" />
+            </svg>
+        </label>
+        <iframe data-aa="2448733" src="//acceptable.a-ads.com/2448733/?size=Adaptive" title="Advertisement"></iframe>
+    </aside>
+
+    <input class="ad-toggle" autocomplete="off" type="checkbox" id="adDismissRight" hidden>
+    <aside class="ad-rail ad-rail--right" aria-label="Advertisement">
+        <label class="ad-rail__dismiss" for="adDismissRight" title="Hide this ad">
+            <span class="sr-only">Hide advertisement</span>
+            <svg viewBox="0 0 490 490" fill="currentColor" aria-hidden="true">
+                <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337" />
+            </svg>
+        </label>
+        <iframe data-aa="2448733" src="//acceptable.a-ads.com/2448733/?size=Adaptive" title="Advertisement"></iframe>
+    </aside>
 </div>
 
-<div id="results"></div>
+<div class="page">
 
-<!-- BEGIN AADS AD UNIT 2448733 -->
+    <header class="topbar">
+        <a class="topbar__mark" href="/" aria-label="Service home">
+            Service
+        </a>
+        <nav class="topbar__nav" aria-label="Site">
+            <a href="live.html">Live crawl</a>
+            <a href="about/">About</a>
+        </nav>
+    </header>
 
-<div style="position: absolute; z-index: 99999">
-      <input autocomplete="off" type="checkbox" id="aadsstickymrv1ln4y" hidden />
-      <div style="padding-top: 0; padding-bottom: 0;">
-        <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);left:0;min-width:100px">
-          <label for="aadsstickymrv1ln4y" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-            <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-              <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-            </svg>
-          </label>
-          <div id="frame" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-                        <iframe data-aa=2448733 src=//acceptable.a-ads.com/2448733/?size=Adaptive style='border:0; padding:0; width:70%; height:70%; overflow:hidden; margin: 0 auto'></iframe>
-                    </div>
-        </div>
-        <style>
-      #aadsstickymrv1ln4y:checked + div {
-        display: none;
-      }
-    </style>
-    </div></div>
+    <main class="content">
 
-<!-- END AADS AD UNIT 2448733 -->
-    <!-- BEGIN AADS AD UNIT 2448733 -->
+        <section class="hero">
+            <h1 class="wordmark">
+                Service<span class="wordmark__caret" aria-hidden="true"></span>
+            </h1>
 
-<div style="position: absolute; z-index: 99999">
-      <input autocomplete="off" type="checkbox" id="aadsstickymrv1m8ic" hidden />
-      <div style="padding-top: 0; padding-bottom: 0;">
-        <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);right:0;min-width:100px">
-          <label for="aadsstickymrv1m8ic" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-            <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-              <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-            </svg>
-          </label>
-          <div id="frame" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-                        <iframe data-aa=2448733 src=//acceptable.a-ads.com/2448733/?size=Adaptive style='border:0; padding:0; width:70%; height:70%; overflow:hidden; margin: 0 auto'></iframe>
-                    </div>
-        </div>
-        <style>
-      #aadsstickymrv1m8ic:checked + div {
-        display: none;
-      }
-    </style>
-    </div></div>
+            <p class="tagline">
+                An independent search engine with its own index. We don&apos;t follow you
+                around the web to do it.
+            </p>
 
-<!-- END AADS AD UNIT 2448733 -->
-<script src="app.js?v=2"></script>
+            <form class="search" id="searchForm" role="search" action="/" method="get">
+                <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                </svg>
+                <label class="sr-only" for="searchInput">Search the web</label>
+                <input
+                    class="search__input"
+                    id="searchInput"
+                    name="q"
+                    type="text"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    placeholder="Search without being watched"
+                >
+                <button class="search__submit" id="searchButton" type="submit">Search</button>
+            </form>
+
+            <ul class="trust">
+                <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
+                    </svg>
+                    No tracking cookies
+                </li>
+                <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="8" r="3.5" />
+                        <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
+                    </svg>
+                    No search profiles
+                </li>
+                <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 7h16M4 12h10M4 17h7" />
+                    </svg>
+                    Our own crawler, our own index
+                </li>
+            </ul>
+
+            <p id="pageCount" class="page-count"></p>
+        </section>
+
+        <section id="results" class="results" aria-live="polite" aria-busy="false"></section>
+
+    </main>
+
+    <footer class="footer">
+        <span>Service — independent search</span>
+        <nav aria-label="Footer">
+            <a href="about/">About</a>
+            <a href="live.html">Live crawl</a>
+            <a href="robots.txt">robots.txt</a>
+        </nav>
+    </footer>
+
+</div>
+
+<script src="app.js?v=3"></script>
 
 </body>
 </html>
