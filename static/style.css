@@ -1,148 +1,489 @@
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial, Helvetica, sans-serif;
+/* ==========================================================================
+   Service — search UI
+   Two themes driven by [data-theme] on <html>. The inline script in the
+   document head sets that attribute before first paint, so there's no
+   flash of the wrong theme.
+   ========================================================================== */
+
+:root {
+    /* Neutrals */
+    --bg: #ffffff;
+    --surface: #f5f6f8;
+    --surface-2: #eceef1;
+    --border: #e3e6ea;
+    --border-strong: #d3d8de;
+    --ink: #16181d;
+    --muted: #5b6472;
+
+    /* Accents */
+    --accent: #2b5cff;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(43, 92, 255, 0.1);
+    --accent-ring: rgba(43, 92, 255, 0.28);
+    --url: #0b7a55;
+
+    --radius: 14px;
+
+    --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+        monospace;
+
+    /* Width reserved by each fixed ad rail (15% of viewport, never < 100px).
+       The content column subtracts this on both sides so it can never slide
+       underneath an ad. Zeroed out in the mobile media query below, where
+       the rails are hidden. */
+    --rail: max(15vw, 100px);
 }
 
-body{
+[data-theme="dark"] {
+    --bg: #0e1014;
+    --surface: #161a21;
+    --surface-2: #1d222b;
+    --border: #262c36;
+    --border-strong: #333b47;
+    --ink: #e8eaee;
+    --muted: #9aa4b2;
 
-    background:#ffffff;
-    color:#111;
-
-    display:flex;
-    flex-direction:column;
-
-    align-items:center;
-
-    min-height:100vh;
+    --accent: #7aa2ff;
+    --accent-ink: #0e1014;
+    --accent-soft: rgba(122, 162, 255, 0.14);
+    --accent-ring: rgba(122, 162, 255, 0.32);
+    --url: #4fd1a5;
 }
 
-.hero{
-
-    margin-top:120px;
-
-    width:min(700px,90%);
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-h1{
-
-    text-align:center;
-
-    font-size:72px;
-
-    margin-bottom:40px;
+html {
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
 }
 
-.search-box{
-
-    display:flex;
-
-    gap:10px;
-}
-
-input{
-
-    flex:1;
-
-    padding:18px;
-
-    font-size:18px;
-
-    border-radius:12px;
-
-    border:2px solid #ddd;
-
-    outline:none;
-}
-
-input:focus{
-
-    border-color:#444;
-}
-
-button{
-
-    padding:18px 26px;
-
-    border:none;
-
-    border-radius:12px;
-
-    cursor:pointer;
-
-    background:black;
-
-    color:white;
-
-    font-size:16px;
-}
-
-#results{
-
-    width:min(800px,90%);
-
-    margin-top:60px;
-
-    margin-bottom:50px;
-}
-
-.result{
-
-    margin-bottom:30px;
-
-    border-bottom:1px solid #eee;
-
-    padding-bottom:20px;
-}
-
-.result a{
-
-    font-size:22px;
-
-    color:#2563eb;
-
-    text-decoration:none;
-}
-
-.result p{
-
-    margin-top:10px;
-
-    line-height:1.5;
-}
-.pagination {
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
     display: flex;
-    gap: 10px;
-    margin-top: 30px;
-    justify-content: center;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
 }
-.pagination button {
-    padding: 10px 24px;
-    border: none;
+
+a {
+    color: var(--accent);
+}
+
+::selection {
+    background: var(--accent-soft);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.skip-link {
+    position: absolute;
+    left: 50%;
+    top: 8px;
+    transform: translate(-50%, -200%);
+    z-index: 100000;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 16px;
     border-radius: 8px;
-    cursor: pointer;
-    background: black;
-    color: white;
-    font-size: 15px;
+    text-decoration: none;
+    font-size: 14px;
+    transition: transform 0.16s ease;
 }
-.result .url {
-    color: #1a6b1a;
+
+.skip-link:focus {
+    transform: translate(-50%, 0);
+}
+
+/* --------------------------------------------------------------------------
+   Content column — sits in the 70% gutter between the two fixed ad rails
+   -------------------------------------------------------------------------- */
+
+.shell {
+    width: min(760px, calc(100vw - 2 * var(--rail) - 32px));
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Masthead — one element, two states.
+   Home: a tall centered hero. Results: a compact sticky bar. There is only
+   ever ONE search input; it's restyled rather than duplicated, so focus,
+   value and history handling stay in one place.
+   -------------------------------------------------------------------------- */
+
+.masthead {
+    padding-top: 18vh;
+    padding-bottom: 8px;
+    transition: padding 0.2s ease;
+}
+
+.masthead-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--ink);
+}
+
+.brand-mark {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    color: var(--accent);
+    transition: width 0.2s ease, height 0.2s ease;
+}
+
+.brand-name {
+    font-size: 44px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    transition: font-size 0.2s ease;
+}
+
+/* Search field ---------------------------------------------------------- */
+
+.searchbar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 18px;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    box-shadow: 0 1px 2px rgba(16, 18, 24, 0.04);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.searchbar:hover {
+    border-color: var(--muted);
+}
+
+/* The whole pill lights up as one unit when the inner input takes focus,
+   which is why the input itself has no visible outline. */
+.searchbar:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.searchbar-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    color: var(--muted);
+}
+
+#searchInput {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: none;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 17px;
+    padding: 12px 0;
+}
+
+#searchInput::placeholder {
+    color: var(--muted);
+}
+
+.icon-btn {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.icon-btn:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+}
+
+.icon-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Only shown once there's something to clear (toggled from app.js). */
+#clearButton[hidden] {
+    display: none;
+}
+
+#searchButton {
+    flex: none;
+    border: none;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+#searchButton:hover {
+    filter: brightness(1.08);
+}
+
+/* Example queries ------------------------------------------------------- */
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.chips-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 4px;
+}
+
+.chip {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+
+.chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
+/* Results state --------------------------------------------------------- */
+
+body.has-results .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+}
+
+body.has-results .masthead-inner {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+}
+
+body.has-results .brand-mark {
+    width: 28px;
+    height: 28px;
+}
+
+body.has-results .brand-name {
+    font-size: 21px;
+}
+
+body.has-results .searchbar {
+    padding-left: 14px;
+}
+
+body.has-results #searchInput {
+    font-size: 15px;
+    padding: 8px 0;
+}
+
+body.has-results #searchButton {
+    padding: 8px 16px;
     font-size: 14px;
 }
 
+body.has-results .chips,
+body.has-results .home-only {
+    display: none;
+}
+
+/* The sticky bar spans the full gutter, so it needs to break out of the
+   centered column and re-center its own inner content. */
+body.has-results .masthead {
+    width: calc(100vw - 2 * var(--rail));
+    margin-left: calc(50% - (100vw - 2 * var(--rail)) / 2);
+    padding-inline: 16px;
+}
+
+body.has-results .masthead-inner {
+    width: min(760px, 100%);
+    margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------------
+   Status line + results
+   -------------------------------------------------------------------------- */
+
+main {
+    flex: 1;
+}
+
+.status {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    min-height: 18px;
+    padding: 22px 0 0;
+}
+
+.status:empty {
+    padding: 0;
+    min-height: 0;
+}
+
+#results {
+    padding-bottom: 64px;
+}
+
+.result {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.result:last-of-type {
+    border-bottom: none;
+}
+
+/* Domain line: monogram tile + host + breadcrumb path */
+.result-site {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    min-width: 0;
+}
+
+/* Rendered locally from the domain's initial rather than fetched from a
+   third-party favicon service — that would leak every result's domain (and
+   the user's IP) to another server on every search. */
+.result-monogram {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.result-host {
+    min-width: 0;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-path {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--url);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-title {
+    display: inline-block;
+    font-size: 20px;
+    line-height: 1.35;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.result-title:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.result-snippet {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* Sitelinks ------------------------------------------------------------- */
+
 .sitelinks {
     margin-top: 14px;
-    margin-left: 20px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 8px 24px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px 24px;
 }
 
 .sitelink {
     /* Grid items default to min-width:auto, which lets an unbreakable
        string (a long URL with no spaces) force the item wider than its
-       track and overlap the next column — this is what was happening. */
+       track and overlap the next column. */
     min-width: 0;
 }
 
@@ -155,13 +496,246 @@ button{
 }
 
 .sitelink a {
-    font-size: 16px;
-    color: #2563eb;
+    font-size: 15px;
+    color: var(--accent);
     text-decoration: none;
 }
 
+.sitelink a:hover {
+    text-decoration: underline;
+}
+
 .sitelink .url {
-    color: #1a6b1a;
-    font-size: 13px;
-    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--url);
+    margin-top: 1px;
+}
+
+/* Loading / empty / error ---------------------------------------------- */
+
+.skeleton {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.skeleton-line {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(
+        90deg,
+        var(--surface) 0%,
+        var(--surface-2) 50%,
+        var(--surface) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s linear infinite;
+}
+
+.skeleton-line + .skeleton-line {
+    margin-top: 10px;
+}
+
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.notice {
+    padding: 40px 0;
+    text-align: center;
+}
+
+.notice h2 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+}
+
+.notice p {
+    color: var(--muted);
+    font-size: 15px;
+}
+
+/* Pagination ----------------------------------------------------------- */
+
+.pagination {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 34px;
+}
+
+.pagination button {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14.5px;
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.pagination button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+/* Footer --------------------------------------------------------------- */
+
+.site-footer {
+    padding: 22px 0 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.site-footer a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.site-footer a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+}
+
+.site-footer .tag {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   About page
+   -------------------------------------------------------------------------- */
+
+.page {
+    padding: 64px 0 24px;
+    flex: 1;
+}
+
+.page-kicker {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.page h1 {
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 10px 0 16px;
+}
+
+.page .lede {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 60ch;
+}
+
+.page h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 40px 0 10px;
+}
+
+.page p + p {
+    margin-top: 12px;
+}
+
+.page-nav {
+    padding-top: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.sponsor-card {
+    margin-top: 16px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.sponsor-card p {
+    color: var(--muted);
+    font-size: 15px;
+}
+
+/* --------------------------------------------------------------------------
+   Ad rails — markup is untouched; this only wraps them so the fixed
+   iframes are hidden on viewports too narrow to spare 200px of gutter.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+    :root {
+        --rail: 0px;
+    }
+
+    .ad-rail {
+        display: none;
+    }
+
+    .shell {
+        width: min(760px, calc(100vw - 32px));
+    }
+
+    .masthead {
+        padding-top: 10vh;
+    }
+
+    .brand-name {
+        font-size: 34px;
+    }
+
+    .brand-mark {
+        width: 34px;
+        height: 34px;
+    }
+
+    /* Stack the compact bar so the field keeps a usable width. */
+    body.has-results .masthead-inner {
+        flex-wrap: wrap;
+    }
+
+    body.has-results .searchbar {
+        order: 3;
+        width: 100%;
+    }
+
+    #searchButton {
+        padding: 11px 16px;
+    }
+
+    .page h1 {
+        font-size: 32px;
+    }
 }
