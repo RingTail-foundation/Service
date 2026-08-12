@@ -3,78 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0d1117">
     <meta name="google-site-verification" content="dvKKYev6im0XU4AEzXiDjxSktZTi5qMS__k-Yqq38yk" />
     <meta name="msvalidate.01" content="B38C44813DB0ABC9AA2C3E19D521160E" />
-    <title>Service Search</title>
+    <title>Service — an independent search engine</title>
+    <meta name="description" content="Service is an independent web search engine with its own crawler and index. No tracking, no profiles, no ad-tech surveillance — just results.">
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
-<div class="hero">
-    <h1>Service</h1>
-    <div class="search-box">
-        <input
-            id="searchInput"
-            type="text"
-            placeholder="Search the web..."
-        >
-        <button id="searchButton">
-            Search
-        </button>
+<!-- Ad rails. These fund the project, so they're built into the layout as
+     real structural columns rather than floated over the content. The .shell
+     reserves horizontal space for them via padding so nothing overlaps. -->
+<input type="checkbox" id="adRailLeft" class="ad-rail__toggle" autocomplete="off" hidden>
+<aside class="ad-rail ad-rail--left" aria-label="Sponsored">
+    <span class="ad-rail__label">Sponsored</span>
+    <div class="ad-rail__frame">
+        <iframe data-aa="2448733" src="//acceptable.a-ads.com/2448733/?size=Adaptive" title="Advertisement" loading="lazy"></iframe>
     </div>
-    <p id="pageCount" class="page-count"></p>
+    <label for="adRailLeft" class="ad-rail__dismiss" title="Hide this ad" role="button" tabindex="0">
+        <svg width="10" height="10" viewBox="0 0 490 490" fill="currentColor" aria-hidden="true">
+            <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337"/>
+        </svg>
+        <span class="sr-only">Hide advertisement</span>
+    </label>
+</aside>
+
+<input type="checkbox" id="adRailRight" class="ad-rail__toggle" autocomplete="off" hidden>
+<aside class="ad-rail ad-rail--right" aria-label="Sponsored">
+    <span class="ad-rail__label">Sponsored</span>
+    <div class="ad-rail__frame">
+        <iframe data-aa="2448733" src="//acceptable.a-ads.com/2448733/?size=Adaptive" title="Advertisement" loading="lazy"></iframe>
+    </div>
+    <label for="adRailRight" class="ad-rail__dismiss" title="Hide this ad" role="button" tabindex="0">
+        <svg width="10" height="10" viewBox="0 0 490 490" fill="currentColor" aria-hidden="true">
+            <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337"/>
+        </svg>
+        <span class="sr-only">Hide advertisement</span>
+    </label>
+</aside>
+
+<div class="shell">
+
+    <header class="topbar">
+        <a href="/" class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            Service
+        </a>
+        <nav aria-label="Primary">
+            <a href="/live.html">Live index</a>
+            <a href="/about/">About</a>
+        </nav>
+    </header>
+
+    <main class="hero" id="hero">
+        <span class="eyebrow">Independent index</span>
+        <h1>Search that isn&apos;t watching you</h1>
+        <p class="tagline">
+            Our own crawler. Our own index. No tracking, no profiling, no auction
+            deciding what you deserve to see.
+        </p>
+
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <label for="searchInput" class="sr-only">Search the web</label>
+            <input id="searchInput" type="text" placeholder="Search the web&hellip;" autocomplete="off" autofocus>
+            <button id="searchButton">Search</button>
+        </div>
+
+        <p id="pageCount" class="page-count"></p>
+
+        <p class="hero-note">
+            <strong>We&apos;re smaller than Google, and we say so.</strong>
+            Every page in our index was crawled by us, not licensed from
+            someone else. You can watch it grow on the
+            <a href="/live.html" style="color:var(--accent);text-decoration:none">live index counter</a>.
+        </p>
+    </main>
+
+    <div id="results"></div>
+
+    <footer class="footer">
+        <span>Service — independent search</span>
+        <a href="/about/">About</a>
+        <a href="/live.html">Live index</a>
+        <a href="/robots.txt">Crawler</a>
+    </footer>
+
 </div>
 
-<div id="results"></div>
-
-<!-- BEGIN AADS AD UNIT 2448733 -->
-
-<div style="position: absolute; z-index: 99999">
-      <input autocomplete="off" type="checkbox" id="aadsstickymrv1ln4y" hidden />
-      <div style="padding-top: 0; padding-bottom: 0;">
-        <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);left:0;min-width:100px">
-          <label for="aadsstickymrv1ln4y" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-            <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-              <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-            </svg>
-          </label>
-          <div id="frame" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-                        <iframe data-aa=2448733 src=//acceptable.a-ads.com/2448733/?size=Adaptive style='border:0; padding:0; width:70%; height:70%; overflow:hidden; margin: 0 auto'></iframe>
-                    </div>
-        </div>
-        <style>
-      #aadsstickymrv1ln4y:checked + div {
-        display: none;
-      }
-    </style>
-    </div></div>
-
-<!-- END AADS AD UNIT 2448733 -->
-    <!-- BEGIN AADS AD UNIT 2448733 -->
-
-<div style="position: absolute; z-index: 99999">
-      <input autocomplete="off" type="checkbox" id="aadsstickymrv1m8ic" hidden />
-      <div style="padding-top: 0; padding-bottom: 0;">
-        <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);right:0;min-width:100px">
-          <label for="aadsstickymrv1m8ic" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-            <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-              <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-            </svg>
-          </label>
-          <div id="frame" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-                        <iframe data-aa=2448733 src=//acceptable.a-ads.com/2448733/?size=Adaptive style='border:0; padding:0; width:70%; height:70%; overflow:hidden; margin: 0 auto'></iframe>
-                    </div>
-        </div>
-        <style>
-      #aadsstickymrv1m8ic:checked + div {
-        display: none;
-      }
-    </style>
-    </div></div>
-
-<!-- END AADS AD UNIT 2448733 -->
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 
 </body>
 </html>
