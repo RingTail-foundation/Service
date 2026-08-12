@@ -61,31 +61,82 @@
 // every CASE here falls through to a neutral 1.0 rather than penalizing a
 // page for not having been reprocessed yet.
 
+/// How many index-retrieved candidates get the expensive rerank treatment.
+///
+/// This is the single most important number in the file for latency. See the
+/// two-phase explanation on SEARCH_SQL below.
+pub const RERANK_CANDIDATE_POOL: i64 = 1000;
+
 /// Full search query text. Bind order: $1 = raw query string (used for
-/// ts_rank_cd + boosts), $2 = limit, $3 = offset.
+/// ts_rank_cd + boosts), $2 = limit, $3 = offset, $4 = candidate pool size
+/// (pass RERANK_CANDIDATE_POOL).
 ///
 /// The tsquery is computed once in a CTE and joined, rather than being
 /// re-parsed in both the SELECT list and the WHERE clause as it was in v2.
+///
+/// TWO-PHASE RETRIEVAL — why this is shaped like this:
+///
+/// v2 scored *every* matching row and then sorted. For a common term that
+/// matches 200k pages, that means 200k invocations each of six plpgsql
+/// functions, several of which run regexes. plpgsql function calls do not
+/// inline, so this is ~1.2M interpreted function calls plus regex compiles
+/// before a single row is returned — which is exactly how a search query
+/// ends up hitting a statement timeout. The cost scales with corpus size,
+/// so it gets worse every time the crawler runs.
+///
+/// So the work is split:
+///
+///   phase 1 (`candidates`): retrieval. Uses only the GIN index and
+///     ts_rank_cd, which is a C function, and takes the top
+///     RERANK_CANDIDATE_POOL rows. This is the part whose cost grows with
+///     the corpus, so it is kept as cheap as Postgres can make it.
+///
+///   phase 2 (`SELECT ... FROM candidates`): reranking. The six boost
+///     functions run here, against at most RERANK_CANDIDATE_POOL rows
+///     instead of every match. Bounded work, so query time stops depending
+///     on how many pages happen to contain the word.
+///
+/// This is the standard retrieve-then-rerank split that every real search
+/// engine uses, and it is what makes it affordable to add *more* expensive
+/// signals later: anything added to phase 2 costs 1000 evaluations, not
+/// however many pages match.
+///
+/// Correctness note: the boosts can only reorder within the candidate pool,
+/// so a page that phase 1 ranks below position 1000 can never be promoted
+/// into the results. That is an acceptable and deliberate trade — a page
+/// whose cover-density relevance is that far down is not a plausible top
+/// result — but it does mean the pool must stay comfortably larger than any
+/// offset being served. Guard for that at the call site rather than silently
+/// returning a short page.
 pub const SEARCH_SQL: &str = r#"
 WITH q AS (
     SELECT websearch_to_tsquery('english', $1) AS tsq
+),
+candidates AS (
+    SELECT p.title, p.url, p.snippet, p.inbound_links,
+           p.is_canonical, p.has_structured_data, p.mobile_friendly,
+           p.is_https, p.url_depth, p.content_length, p.heading_count,
+           ts_rank_cd(p.search_vector, q.tsq, 33) AS base_rank
+    FROM pages p, q
+    WHERE p.search_vector @@ q.tsq
+    ORDER BY base_rank DESC
+    LIMIT $4
 )
-SELECT p.title, p.url, p.snippet,
+SELECT c.title, c.url, c.snippet,
     (
-        ts_rank_cd(p.search_vector, q.tsq, 33)
-        * authority_weight(p.inbound_links)
+        c.base_rank
+        * authority_weight(c.inbound_links)
         * least(
-            domain_match_boost(p.url, $1)
-            * title_match_boost(p.title, $1)
-            * homepage_boost(p.url)
-            * structural_boost(p.is_canonical, p.has_structured_data, p.mobile_friendly)
-            * hygiene_boost(p.url, p.is_https, p.url_depth)
-            * content_boost(p.content_length, p.heading_count),
+            domain_match_boost(c.url, $1)
+            * title_match_boost(c.title, $1)
+            * homepage_boost(c.url)
+            * structural_boost(c.is_canonical, c.has_structured_data, c.mobile_friendly)
+            * hygiene_boost(c.url, c.is_https, c.url_depth)
+            * content_boost(c.content_length, c.heading_count),
             8.0
         )
     )::double precision AS score
-FROM pages p, q
-WHERE p.search_vector @@ q.tsq
+FROM candidates c
 ORDER BY score DESC
 LIMIT $2 OFFSET $3
 "#;

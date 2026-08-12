@@ -16,7 +16,7 @@ mod crawl;
 mod db;
 mod robots;
 
-use algorithm::rank::SEARCH_SQL;
+use algorithm::rank::{RERANK_CANDIDATE_POOL, SEARCH_SQL};
 use algorithm::sitelinks::{group_by_domain, GroupedResult, ResultItem};
 use crawl::{crawl, is_junk_url, store_page, storage_worker, StorageTask};
 use db::init_db;
@@ -392,10 +392,19 @@ async fn search(
     const RAW_FETCH: i64 = 40;
     let offset = page * 10;
 
+    // The boosts can only reorder inside the reranked candidate pool, so once
+    // offset + RAW_FETCH would run past the end of that pool the results stop
+    // being meaningfully ranked. Refuse to serve those pages rather than
+    // returning arbitrary tail rows.
+    if offset + RAW_FETCH > RERANK_CANDIDATE_POOL {
+        return Json(Vec::new());
+    }
+
     let rows: Vec<(String, String, String, f64)> = sqlx::query_as(SEARCH_SQL)
         .bind(&params.q)
         .bind(RAW_FETCH)
         .bind(offset)
+        .bind(RERANK_CANDIDATE_POOL)
         .fetch_all(state.db.as_ref())
         .await
         .unwrap_or_default();
