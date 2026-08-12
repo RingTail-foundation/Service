@@ -14,12 +14,14 @@
 
 /* --- design tokens ------------------------------------------------------- */
 :root {
-    /* Neutrals (4) */
-    --bg:            #0d1117;
-    --surface:       #161b22;
-    --border:        #262d38;
-    --fg:            #e6edf3;
-    --fg-muted:      #8b98a5;
+    /* Neutrals (4). Near-black and close to neutral rather than the previous
+       navy tint — the tint was what made the page read as "unfinished blue
+       template" instead of a deliberate dark surface. */
+    --bg:            #0a0c0e;
+    --surface:       #16191d;
+    --border:        #23282e;
+    --fg:            #eceff2;
+    --fg-muted:      #8b949e;
 
     /* Primary brand + accent (2) */
     --accent:        #3fd6c2;
@@ -62,16 +64,50 @@ body {
     font-size: 16px;
     line-height: 1.6;
     min-height: 100vh;
-    /* A single soft accent wash anchored behind the search field. Not a
-       decorative blob — it's what visually centres the hero on an otherwise
-       flat dark canvas, and it fades out entirely below the fold. */
-    background-image: radial-gradient(
-        70% 46% at 50% 0%,
-        rgba(63, 214, 194, 0.10) 0%,
-        rgba(63, 214, 194, 0) 72%
-    );
-    background-repeat: no-repeat;
 }
+
+/* Background treatment, as one fixed non-interactive layer behind everything.
+   Two quiet parts, both near-invisible on purpose: a soft accent wash that
+   optically centres the logotype, and a hairline diagonal weave that gives
+   the dark field some material texture so it doesn't read as a blank div.
+   Nothing here is a decorative blob or a filler shape. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+        /* Accent wash behind the logotype. */
+        radial-gradient(
+            58% 38% at 50% 14%,
+            rgba(63, 214, 194, 0.15) 0%,
+            rgba(63, 214, 194, 0) 72%
+        ),
+        /* A second, cooler wash low and off-centre keeps the lower half of the
+           canvas from going dead flat. */
+        radial-gradient(
+            50% 40% at 78% 88%,
+            rgba(121, 192, 255, 0.07) 0%,
+            rgba(121, 192, 255, 0) 70%
+        ),
+        /* Hairline weave for material texture. */
+        repeating-linear-gradient(
+            115deg,
+            transparent 0 46px,
+            rgba(236, 239, 242, 0.022) 46px 47px
+        ),
+        /* Corner vignette, so the edges fall away instead of ending abruptly. */
+        radial-gradient(
+            120% 100% at 50% 40%,
+            rgba(0, 0, 0, 0) 55%,
+            rgba(0, 0, 0, 0.5) 100%
+        );
+}
+
+/* In the results view the canvas goes flat — texture behind a list of links
+   is noise, and the accent wash belongs to the landing moment only. */
+body.searching::before { background-image: none; }
 
 ::selection {
     background: var(--accent-dim);
@@ -119,6 +155,14 @@ body {
     }
 }
 
+/* The landing view runs full-width with no rails, so the search field sits in
+   real space instead of a slot between two ad columns. The rails return the
+   moment a query is run (see the note in index.html). */
+body.home:not(.searching) .shell {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 /* --- top bar ------------------------------------------------------------- */
 .topbar {
     width: 100%;
@@ -142,6 +186,12 @@ body {
 }
 
 .brand:hover { color: var(--accent); }
+
+/* On the landing view the centred logotype IS the brand, so a second small
+   wordmark in the corner is redundant chrome — the nav slides right on its
+   own. It reappears in the results view, where it doubles as "back to home". */
+body.home:not(.searching) .brand { display: none; }
+body.home:not(.searching) .topbar nav { margin-left: auto; }
 
 /* The mark: a crawler node with an outbound edge. Drawn in CSS from two
    simple shapes rather than an SVG illustration — it is the one signature
@@ -189,8 +239,10 @@ body {
 
 /* --- hero ---------------------------------------------------------------- */
 .hero {
-    width: min(660px, 92%);
-    margin: clamp(48px, 13vh, 128px) 0 0;
+    width: min(680px, 92%);
+    /* Sits a little above true centre, which is where the eye expects a
+       search field to be — matching Google/DDG/Brave's optical placement. */
+    margin: clamp(60px, 17vh, 168px) 0 0;
     text-align: center;
 }
 
@@ -210,20 +262,50 @@ body {
     border-radius: 999px;
 }
 
-.hero h1 {
-    font-size: clamp(44px, 9vw, 76px);
-    line-height: 1.02;
-    letter-spacing: -0.04em;
-    font-weight: 680;
-    margin: 22px 0 14px;
-    text-wrap: balance;
+/* --- logotype ------------------------------------------------------------ */
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2vw, 18px);
+    margin: 0 0 clamp(28px, 5vh, 44px);
+    font-weight: 600;
+    /* Tight tracking is what makes a wordmark read as a logo rather than as a
+       heading that happens to be large. */
+    letter-spacing: -0.045em;
+    font-size: clamp(42px, 8vw, 64px);
+    line-height: 1;
 }
 
+.logo-mark {
+    color: var(--accent);
+    flex: none;
+    width: clamp(38px, 7vw, 54px);
+    height: clamp(38px, 7vw, 54px);
+}
+
+.logo-mark svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* The ring sweeps slowly — a quiet signal that the crawler is always running.
+   Slow enough (18s) to be felt rather than watched. */
+.logo-ring {
+    transform-origin: 24px 24px;
+    animation: sweep 18s linear infinite;
+}
+
+@keyframes sweep { to { transform: rotate(360deg); } }
+
+.logo-word { color: var(--fg); }
+
+/* One short line, in the manner of a product signature rather than a pitch. */
 .hero .tagline {
     color: var(--fg-muted);
-    font-size: clamp(15px, 2vw, 17px);
-    max-width: 46ch;
-    margin: 0 auto 34px;
+    font-size: 14.5px;
+    margin: 26px auto 0;
     text-wrap: pretty;
 }
 
@@ -235,8 +317,16 @@ body {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 6px 6px 6px 18px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    padding: 5px 5px 5px 18px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+/* Slightly lifted off the background on the landing view so the pill reads as
+   the one interactive object on the page. */
+body.home:not(.searching) .search-box {
+    background: #14171b;
+    box-shadow: 0 1px 0 rgba(236, 239, 242, 0.03) inset,
+                0 10px 30px -18px rgba(0, 0, 0, 0.9);
 }
 
 .search-box:focus-within {
@@ -284,11 +374,53 @@ button {
 button:hover { background: #5fe3d1; }
 button:active { transform: translateY(1px); }
 
+/* Icon-only submit. A word-labelled button inside the pill was the single
+   biggest source of visual weight on the old page; every reference engine
+   uses a small glyph and lets Enter do the real work. */
+.search-submit {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    /* Quiet until the field is engaged. */
+    background: transparent;
+    color: var(--fg-muted);
+}
+
+.search-submit svg {
+    width: 18px;
+    height: 18px;
+}
+
+.search-submit:hover {
+    background: var(--accent);
+    color: #06231f;
+}
+
+/* Once the user is typing, the submit affordance becomes the accent — it is
+   the one action the page wants. */
+.search-box:focus-within .search-submit {
+    background: var(--accent);
+    color: #06231f;
+}
+
+.search-box:focus-within .search-submit:hover { background: #5fe3d1; }
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+}
+
+/* The pill itself renders the focus state via :focus-within, so the input's
+   own outline would draw a second rectangle inside it — which is what made
+   the autofocused field look like a broken nested box. */
+.search-box input:focus-visible {
+    outline: none;
 }
 
 /* Compact hero — applied to <body> once a search has been run, so the page
@@ -300,19 +432,21 @@ input:focus-visible {
     text-align: left;
 }
 
-.searching .hero .eyebrow,
-.searching .hero h1,
+/* Landing-only furniture is dropped: the logotype moves to the corner brand,
+   and the tagline and index counter have done their job by this point. */
+.searching .logo,
 .searching .hero .tagline,
-.searching .hero .hero-note {
+.searching .page-count {
     display: none;
 }
 
 .searching .search-box { padding-left: 16px; }
 .searching input[type="text"] { font-size: 15.5px; padding: 9px 4px; }
-.searching .search-box button { padding: 9px 20px; font-size: 14px; }
-.searching .page-count { margin-top: 14px; }
-/* The accent wash belongs to the landing state only. */
-body.searching { background-image: none; }
+
+.searching .search-submit {
+    width: 34px;
+    height: 34px;
+}
 
 /* --- index stats / trust line ------------------------------------------- */
 .page-count {
@@ -470,6 +604,8 @@ body.searching { background-image: none; }
 @media (prefers-reduced-motion: reduce) {
     .status .spinner { animation-duration: 2.4s; }
     button:active { transform: none; }
+    /* The sweeping ring is decorative motion — the mark reads correctly static. */
+    .logo-ring { animation: none; }
 }
 
 .empty {
@@ -623,6 +759,13 @@ body.searching { background-image: none; }
 
 .footer a:hover { color: var(--accent); }
 
+/* The landing footer is a whisper: no dividing rule, no wordmark repeat. */
+body.home:not(.searching) .footer {
+    border-top: none;
+    font-size: 12.5px;
+    gap: 8px 20px;
+}
+
 /* --- ad rails ------------------------------------------------------------ */
 /* Labelled, bordered columns. Framing them explicitly as "sponsored" and
    giving them the same surface treatment as the rest of the chrome makes
@@ -698,6 +841,9 @@ body.searching { background-image: none; }
 
 .ad-rail__toggle { display: none; }
 .ad-rail__toggle:checked + .ad-rail { display: none; }
+
+/* Keep the landing page free of ads; show them on the results view. */
+body.home:not(.searching) .ad-rail { display: none; }
 
 @media (max-width: 860px) {
     .ad-rail { display: none; }
