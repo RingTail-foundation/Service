@@ -4,111 +4,64 @@
     box-sizing:border-box;
     font-family:Arial, Helvetica, sans-serif;
 }
-
 body{
-
     background:#ffffff;
     color:#111;
-
     display:flex;
     flex-direction:column;
-
     align-items:center;
-
     min-height:100vh;
 }
-
 .hero{
-
     margin-top:120px;
-
     width:min(700px,90%);
 }
-
 h1{
-
     text-align:center;
-
     font-size:72px;
-
     margin-bottom:40px;
 }
-
 .search-box{
-
     display:flex;
-
     gap:10px;
 }
-
 input{
-
     flex:1;
-
     padding:18px;
-
     font-size:18px;
-
     border-radius:12px;
-
     border:2px solid #ddd;
-
     outline:none;
 }
-
 input:focus{
-
     border-color:#444;
 }
-
 button{
-
     padding:18px 26px;
-
     border:none;
-
     border-radius:12px;
-
     cursor:pointer;
-
     background:black;
-
     color:white;
-
     font-size:16px;
 }
-
 #results{
-
     width:min(800px,90%);
-
     margin-top:60px;
-
     margin-bottom:50px;
 }
-
 .result{
-
     margin-bottom:30px;
-
     border-bottom:1px solid #eee;
-
     padding-bottom:20px;
 }
-
 .result a{
-
     font-size:22px;
-
     color:#2563eb;
-
     text-decoration:none;
 }
-
 .result p{
-
     margin-top:10px;
-
     line-height:1.5;
 }
 .pagination {
@@ -130,7 +83,6 @@ button{
     color: #1a6b1a;
     font-size: 14px;
 }
-
 .sitelinks {
     margin-top: 14px;
     margin-left: 20px;
@@ -138,14 +90,12 @@ button{
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 8px 24px;
 }
-
 .sitelink {
     /* Grid items default to min-width:auto, which lets an unbreakable
        string (a long URL with no spaces) force the item wider than its
        track and overlap the next column — this is what was happening. */
     min-width: 0;
 }
-
 .sitelink a,
 .sitelink .url {
     display: block;
@@ -153,15 +103,89 @@ button{
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 .sitelink a {
     font-size: 16px;
     color: #2563eb;
     text-decoration: none;
 }
-
 .sitelink .url {
     color: #1a6b1a;
     font-size: 13px;
     margin-top: 2px;
+}
+
+/* Sponsored Results block — matches the existing light theme's color
+   conventions (blue links, green urls) rather than a dark reference
+   screenshot, since that's what the rest of this page actually uses. */
+.sponsored-block {
+    margin-bottom: 40px;
+}
+.sponsored-title {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+}
+.sponsored-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin-bottom: 4px;
+}
+.sponsored-list {
+    display: none;
+}
+.sponsored-list.expanded {
+    display: block;
+}
+.sponsored-item {
+    margin-top: 20px;
+}
+.sponsored-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sponsored-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f0f0f0;
+}
+.sponsored-sitename {
+    font-size: 14px;
+    color: #111;
+}
+.sponsored-url {
+    color: #1a6b1a;
+    font-size: 13px;
+    margin-left: 28px;
+    margin-top: 2px;
+}
+.sponsored-headline {
+    display: block;
+    margin-left: 28px;
+    margin-top: 4px;
+    font-size: 20px;
+    color: #2563eb;
+    text-decoration: none;
+}
+.sponsored-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 16px auto 0;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    background: #f7f7f7;
+    color: #111;
+    font-size: 14px;
+    cursor: pointer;
+}
+.sponsored-toggle .chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+.sponsored-toggle.expanded .chevron {
+    transform: rotate(180deg);
 }
