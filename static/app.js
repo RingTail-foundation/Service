@@ -1,10 +1,48 @@
 const SUPABASE_URL = "https://nxipygonwjlxozfsrbsn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_lt5n95QnheWul-URwQHtog_XBHya10T";
+const PRIVADCY_URL = "https://privadcy.onrender.com";
 
 const input = document.getElementById("searchInput");
 const button = document.getElementById("searchButton");
 const results = document.getElementById("results");
 let currentPage = 0;
+
+// Fetches sub-pool-matched ads for this query. Never lets an ad-network
+// hiccup break real search — any failure (network, bad JSON, Privadcy
+// asleep on Render's free tier) just means no sponsored block, silently.
+async function fetchSponsored(query) {
+    try {
+        const response = await fetch(
+            `${PRIVADCY_URL}/ads/for-query?q=${encodeURIComponent(query)}`
+        );
+        const data = await response.json();
+        return data.sponsored || [];
+    } catch (e) {
+        console.error("Sponsored results fetch failed:", e);
+        return [];
+    }
+}
+
+// Renders above the organic results, matching Google's placement.
+// Reuses the .result class so it inherits your existing result styling;
+// add .sponsored-result / .sponsored-heading rules in style.css if you
+// want it visually distinguished further.
+function renderSponsored(sponsored) {
+    if (!sponsored.length) return;
+    const heading = document.createElement("p");
+    heading.className = "sponsored-heading";
+    heading.textContent = "Sponsored";
+    results.appendChild(heading);
+    for (const ad of sponsored) {
+        const div = document.createElement("div");
+        div.className = "result sponsored-result";
+        div.innerHTML = `
+            <a href="${ad.destination_url}" target="_blank" rel="sponsored noopener noreferrer">${ad.description}</a>
+            <p class="url">${ad.destination_url}</p>
+        `;
+        results.appendChild(div);
+    }
+}
 
 // `updateHistory` is false when we're reacting to a browser back/forward
 // navigation (popstate) or restoring state on initial page load — in both
@@ -29,22 +67,33 @@ async function search(page = 0, updateHistory = true) {
 
     results.innerHTML = "Searching...";
     try {
-        const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/rpc/search_pages`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "apikey": SUPABASE_ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-                },
-                body: JSON.stringify({ query: query, page_num: page })
-            }
-        );
+        // Run the real search and the ad fetch concurrently — sponsored
+        // results should never add latency to organic search.
+        const [response, sponsored] = await Promise.all([
+            fetch(
+                `${SUPABASE_URL}/rest/v1/rpc/search_pages`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ query: query, page_num: page })
+                }
+            ),
+            // Only fetch ads for the first page — a "sponsored" block on
+            // page 2+ of the same query would just repeat the same ad,
+            // since sub-pool matching is deterministic per query text.
+            page === 0 ? fetchSponsored(query) : Promise.resolve([])
+        ]);
         const data = await response.json();
         results.innerHTML = "";
+        renderSponsored(sponsored);
         if (!data.length) {
-            results.innerHTML = page === 0 ? "<p>No results found.</p>" : "<p>No more results.</p>";
+            const msg = document.createElement("p");
+            msg.textContent = page === 0 ? "No results found." : "No more results.";
+            results.appendChild(msg);
             return;
         }
         for (const item of data) {
