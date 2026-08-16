@@ -23,25 +23,66 @@ async function fetchSponsored(query) {
     }
 }
 
-// Renders above the organic results, matching Google's placement.
-// Reuses the .result class so it inherits your existing result styling;
-// add .sponsored-result / .sponsored-heading rules in style.css if you
-// want it visually distinguished further.
+function domainFromUrl(url) {
+    return url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+}
+
+function setToggleLabel(toggle, expanded) {
+    toggle.innerHTML = expanded
+        ? 'Hide sponsored results <span class="chevron">&#8964;</span>'
+        : 'Show sponsored results <span class="chevron">&#8964;</span>';
+}
+
+// Renders a collapsible "Sponsored Results" block above the organic
+// results, matching Google's layout: collapsed by default, a pill
+// toggle to expand/hide, one card per sponsored ad (icon, site name,
+// url, bold headline). Our Ad model has one description field, not
+// separate headline/snippet — that single line is used as the headline.
 function renderSponsored(sponsored) {
     if (!sponsored.length) return;
-    const heading = document.createElement("p");
-    heading.className = "sponsored-heading";
-    heading.textContent = "Sponsored";
-    results.appendChild(heading);
+
+    const block = document.createElement("div");
+    block.className = "sponsored-block";
+
+    const title = document.createElement("p");
+    title.className = "sponsored-title";
+    title.textContent = "Sponsored Results";
+    block.appendChild(title);
+
+    const divider = document.createElement("hr");
+    divider.className = "sponsored-divider";
+    block.appendChild(divider);
+
+    const list = document.createElement("div");
+    list.className = "sponsored-list"; // collapsed by default, see style.css
+
     for (const ad of sponsored) {
-        const div = document.createElement("div");
-        div.className = "result sponsored-result";
-        div.innerHTML = `
-            <a href="${ad.destination_url}" target="_blank" rel="sponsored noopener noreferrer">${ad.description}</a>
-            <p class="url">${ad.destination_url}</p>
+        const item = document.createElement("div");
+        item.className = "sponsored-item";
+        item.innerHTML = `
+            <div class="sponsored-meta">
+                <img class="sponsored-icon" src="${ad.creative_ref}" alt="">
+                <span class="sponsored-sitename">${domainFromUrl(ad.destination_url)}</span>
+            </div>
+            <p class="sponsored-url">${ad.destination_url}</p>
+            <a class="sponsored-headline" href="${ad.destination_url}" target="_blank" rel="sponsored noopener noreferrer">${ad.description}</a>
         `;
-        results.appendChild(div);
+        list.appendChild(item);
     }
+    block.appendChild(list);
+
+    const toggle = document.createElement("button");
+    toggle.className = "sponsored-toggle";
+    setToggleLabel(toggle, false);
+    toggle.onclick = () => {
+        const nowExpanded = !list.classList.contains("expanded");
+        list.classList.toggle("expanded", nowExpanded);
+        toggle.classList.toggle("expanded", nowExpanded);
+        setToggleLabel(toggle, nowExpanded);
+    };
+    block.appendChild(toggle);
+
+    results.appendChild(block);
 }
 
 // `updateHistory` is false when we're reacting to a browser back/forward
