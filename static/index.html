@@ -17,8 +17,10 @@
             type="text"
             placeholder="Search the web..."
         >
-        <button id="searchButton">
-            Search
+        <button id="searchButton" aria-label="Search">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+                <path fill="currentColor" fill-rule="evenodd" d="M7 0a7 7 0 1 0 4.49 12.37l3.44 3.45a.63.63 0 1 0 .89-.89l-3.45-3.44A7 7 0 0 0 7 0ZM1.25 7a5.75 5.75 0 1 1 11.5 0 5.75 5.75 0 0 1-11.5 0Z" clip-rule="evenodd"/>
+            </svg>
         </button>
     </div>
     <p id="pageCount" class="page-count"></p>
@@ -26,7 +28,7 @@
 <div id="results"></div>
 
 <!-- BEGIN PRIVADCY AD SLOT (left) -->
-<div style="position: absolute; z-index: 99999">
+<div class="privadcy-ad-slot" style="position: absolute; z-index: 99999">
   <input autocomplete="off" type="checkbox" id="privadcy-dismiss-left" hidden />
   <div style="padding-top: 0; padding-bottom: 0;">
     <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);left:0;min-width:100px">
@@ -45,7 +47,7 @@
 <!-- END PRIVADCY AD SLOT (left) -->
 
 <!-- BEGIN PRIVADCY AD SLOT (right) -->
-<div style="position: absolute; z-index: 99999">
+<div class="privadcy-ad-slot" style="position: absolute; z-index: 99999">
   <input autocomplete="off" type="checkbox" id="privadcy-dismiss-right" hidden />
   <div style="padding-top: 0; padding-bottom: 0;">
     <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);right:0;min-width:100px">
