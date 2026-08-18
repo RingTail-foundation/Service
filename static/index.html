@@ -17,12 +17,19 @@
             type="text"
             placeholder="Search the web..."
         >
+        <button id="micButton" aria-label="Search by voice" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+                <path fill="currentColor" d="M8 10a2.5 2.5 0 0 0 2.5-2.5v-4a2.5 2.5 0 0 0-5 0v4A2.5 2.5 0 0 0 8 10Z"/>
+                <path fill="currentColor" d="M12.5 7.5a.5.5 0 0 0-1 0 3.5 3.5 0 0 1-7 0 .5.5 0 0 0-1 0 4.5 4.5 0 0 0 4 4.473V14H6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H8.5v-2.027A4.5 4.5 0 0 0 12.5 7.5Z"/>
+            </svg>
+        </button>
         <button id="searchButton" aria-label="Search">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" aria-hidden="true">
                 <path fill="currentColor" fill-rule="evenodd" d="M7 0a7 7 0 1 0 4.49 12.37l3.44 3.45a.63.63 0 1 0 .89-.89l-3.45-3.44A7 7 0 0 0 7 0ZM1.25 7a5.75 5.75 0 1 1 11.5 0 5.75 5.75 0 0 1-11.5 0Z" clip-rule="evenodd"/>
             </svg>
         </button>
     </div>
+    <p id="micError" class="mic-error" hidden>Voice search isn't supported in this browser.</p>
     <p id="pageCount" class="page-count"></p>
 </div>
 <div id="results"></div>
