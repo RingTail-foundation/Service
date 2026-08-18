@@ -188,6 +188,37 @@ async function search(page = 0, updateHistory = true) {
 }
 
 button.onclick = () => search(0);
+
+// Voice search — client-side only (Web Speech API), no backend involved.
+const micButton = document.getElementById("micButton");
+const micError = document.getElementById("micError");
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+    micButton.disabled = true;
+    micButton.style.opacity = "0.35";
+    micButton.style.cursor = "not-allowed";
+} else {
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = false;
+
+    recognition.onresult = (e) => {
+        input.value = e.results[0][0].transcript;
+        search(0);
+    };
+    recognition.onerror = () => {
+        micError.hidden = false;
+        micButton.classList.remove("listening");
+    };
+    recognition.onend = () => micButton.classList.remove("listening");
+
+    micButton.onclick = () => {
+        micError.hidden = true;
+        micButton.classList.add("listening");
+        recognition.start();
+    };
+}
 input.addEventListener("keydown", e => {
     if (e.key === "Enter") search(0);
 });
