@@ -1,77 +1,317 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-site-verification" content="dvKKYev6im0XU4AEzXiDjxSktZTi5qMS__k-Yqq38yk" />
-    <meta name="msvalidate.01" content="B38C44813DB0ABC9AA2C3E19D521160E" />
-    <title>Service Search</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="hero">
-    <h1>Service</h1>
-    <div class="search-box">
-        <input
-            id="searchInput"
-            type="text"
-            placeholder="Search the web..."
-        >
-        <button id="micButton" aria-label="Search by voice" type="button">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" aria-hidden="true">
-                <path fill="currentColor" d="M8 10a2.5 2.5 0 0 0 2.5-2.5v-4a2.5 2.5 0 0 0-5 0v4A2.5 2.5 0 0 0 8 10Z"/>
-                <path fill="currentColor" d="M12.5 7.5a.5.5 0 0 0-1 0 3.5 3.5 0 0 1-7 0 .5.5 0 0 0-1 0 4.5 4.5 0 0 0 4 4.473V14H6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H8.5v-2.027A4.5 4.5 0 0 0 12.5 7.5Z"/>
-            </svg>
-        </button>
-        <button id="searchButton" aria-label="Search">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" aria-hidden="true">
-                <path fill="currentColor" fill-rule="evenodd" d="M7 0a7 7 0 1 0 4.49 12.37l3.44 3.45a.63.63 0 1 0 .89-.89l-3.45-3.44A7 7 0 0 0 7 0ZM1.25 7a5.75 5.75 0 1 1 11.5 0 5.75 5.75 0 0 1-11.5 0Z" clip-rule="evenodd"/>
-            </svg>
-        </button>
-    </div>
-    <p id="micError" class="mic-error" hidden>Voice search isn't supported in this browser.</p>
-    <p id="pageCount" class="page-count"></p>
-</div>
-<div id="results"></div>
+:root{
+    --border: #e3e3e3;
+    --border-focus: #999;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --link: #2563eb;
+    --url: #1a6b1a;
+    --radius: 14px;
+}
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+body{
+    background:#ffffff;
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+}
+.hero{
+    min-height:70vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    width:min(600px,90%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+h1{
+    text-align:center;
+    font-size:56px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    margin-bottom:32px;
+}
 
-<!-- BEGIN PRIVADCY AD SLOT (left) -->
-<div class="privadcy-ad-slot" style="position: absolute; z-index: 99999">
-  <input autocomplete="off" type="checkbox" id="privadcy-dismiss-left" hidden />
-  <div style="padding-top: 0; padding-bottom: 0;">
-    <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);left:0;min-width:100px">
-      <label for="privadcy-dismiss-left" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-        <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-          <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-        </svg>
-      </label>
-      <div id="privadcy-frame-left" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-        <iframe class="privadcy-iframe" src="https://privadcy.onrender.com/embed/sidebar?w=140&h=180" style="border:0; padding:0; width:140px; height:180px; overflow:hidden; margin: 0 auto"></iframe>
-      </div>
-    </div>
-    <style>#privadcy-dismiss-left:checked + div { display: none; }</style>
-  </div>
-</div>
-<!-- END PRIVADCY AD SLOT (left) -->
+/* Single merged pill, matching DuckDuckGo's search bar shape — an icon
+   button embedded inside the input's own rounded border, not a separate
+   rectangular button sitting beside it. */
+.search-box{
+    display:flex;
+    align-items:center;
+    width:100%;
+    border:1.5px solid var(--border);
+    border-radius:999px;
+    padding:4px 4px 4px 20px;
+    transition:border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.search-box:focus-within{
+    border-color:var(--border-focus);
+    box-shadow:0 1px 6px rgba(0,0,0,0.08);
+}
+input{
+    flex:1;
+    border:none;
+    outline:none;
+    font-size:17px;
+    padding:14px 8px;
+    background:transparent;
+}
+input::placeholder{
+    color:#999;
+}
+button{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:44px;
+    height:44px;
+    border:none;
+    border-radius:50%;
+    cursor:pointer;
+    background:black;
+    color:white;
+    flex-shrink:0;
+}
+button:hover{
+    background:#222;
+}
+button svg{
+    width:18px;
+    height:18px;
+}
 
-<!-- BEGIN PRIVADCY AD SLOT (right) -->
-<div class="privadcy-ad-slot" style="position: absolute; z-index: 99999">
-  <input autocomplete="off" type="checkbox" id="privadcy-dismiss-right" hidden />
-  <div style="padding-top: 0; padding-bottom: 0;">
-    <div style="width:15%;height:100%;position:fixed;text-align:center;font-size:0;top:50%;transform:translateY(-50%);right:0;min-width:100px">
-      <label for="privadcy-dismiss-right" style="bottom: 24px;margin:0 auto;right:0;left:0;max-width:24px; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-        <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-          <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-        </svg>
-      </label>
-      <div id="privadcy-frame-right" style="width: 100%;margin: auto;position: relative; z-index: 99998;height:100%; display: flex;flex-direction: column; justify-content: center">
-        <iframe class="privadcy-iframe" src="https://privadcy.onrender.com/embed/sidebar?w=140&h=180" style="border:0; padding:0; width:140px; height:180px; overflow:hidden; margin: 0 auto"></iframe>
-      </div>
-    </div>
-    <style>#privadcy-dismiss-right:checked + div { display: none; }</style>
-  </div>
-</div>
-<!-- END PRIVADCY AD SLOT (right) -->
+#micButton{
+    background:transparent;
+    color:#666;
+    width:38px;
+    height:38px;
+}
+#micButton:hover{
+    background:#f0f0f0;
+    color:var(--text);
+}
+#micButton.listening{
+    color:#dc2626;
+}
+#micButton.listening svg{
+    animation:pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.4; }
+}
+.mic-error{
+    margin-top:10px;
+    font-size:13px;
+    color:var(--text-muted);
+    text-align:center;
+}
 
-<script src="app.js?v=2"></script>
-</body>
-</html>
+.page-count{
+    margin-top:14px;
+    font-size:13px;
+    color:var(--text-muted);
+    text-align:center;
+}
+
+#results{
+    width:min(700px,90%);
+    margin-top:48px;
+    margin-bottom:60px;
+}
+.result{
+    margin-bottom:28px;
+    padding-bottom:20px;
+    border-bottom:1px solid #f0f0f0;
+}
+.result a{
+    font-size:20px;
+    font-weight:500;
+    color:var(--link);
+    text-decoration:none;
+}
+.result a:hover{
+    text-decoration:underline;
+}
+.result p{
+    margin-top:8px;
+    line-height:1.55;
+    color:var(--text);
+}
+.result .url{
+    color:var(--url);
+    font-size:13px;
+    margin-top:4px;
+}
+.pagination{
+    display:flex;
+    gap:10px;
+    margin-top:30px;
+    justify-content:center;
+}
+.pagination button{
+    width:auto;
+    height:auto;
+    border-radius:10px;
+    padding:10px 22px;
+    font-size:14px;
+}
+.sitelinks{
+    margin-top:14px;
+    margin-left:20px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+    gap:8px 24px;
+}
+.sitelink{
+    min-width:0;
+}
+.sitelink a,
+.sitelink .url{
+    display:block;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.sitelink a{
+    font-size:15px;
+    color:var(--link);
+    text-decoration:none;
+}
+.sitelink .url{
+    color:var(--url);
+    font-size:12px;
+    margin-top:2px;
+}
+
+/* Sponsored Results block */
+.sponsored-block{
+    margin-bottom:36px;
+}
+.sponsored-title{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+}
+.sponsored-divider{
+    border:none;
+    border-top:1px solid #f0f0f0;
+    margin-bottom:4px;
+}
+.sponsored-list{
+    display:none;
+}
+.sponsored-list.expanded{
+    display:block;
+}
+.sponsored-item{
+    margin-top:18px;
+}
+.sponsored-meta{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.sponsored-icon{
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    object-fit:cover;
+    background:#f0f0f0;
+}
+.sponsored-sitename{
+    font-size:13px;
+    color:var(--text-muted);
+}
+.sponsored-url{
+    color:var(--url);
+    font-size:12px;
+    margin-left:28px;
+    margin-top:2px;
+}
+.sponsored-headline{
+    display:block;
+    margin-left:28px;
+    margin-top:4px;
+    font-size:18px;
+    font-weight:500;
+    color:var(--link);
+    text-decoration:none;
+}
+.sponsored-headline:hover{
+    text-decoration:underline;
+}
+.sponsored-toggle{
+    width:auto;
+    height:auto;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:16px auto 0;
+    padding:9px 20px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fafafa;
+    color:var(--text);
+    font-size:13px;
+}
+.sponsored-toggle:hover{
+    background:#f2f2f2;
+}
+.sponsored-toggle .chevron{
+    display:inline-block;
+    transition:transform 0.2s ease;
+}
+.sponsored-toggle.expanded .chevron{
+    transform:rotate(180deg);
+}
+
+/* Mobile: the fixed 100px+ side ad rails have nowhere to go on a narrow
+   screen — they were overlapping the hero/search box directly on top of
+   the actual content. Side-rail ads are inherently a wide-viewport
+   pattern (same reason A-ADS's own snippet only made sense at desktop
+   widths), so they're hidden below this breakpoint rather than squeezed
+   into a size where they'd still collide with content. */
+@media (max-width: 1000px){
+    .privadcy-ad-slot{
+        display:none;
+    }
+    .hero{
+        width:92%;
+    }
+    h1{
+        font-size:40px;
+    }
+    .search-box{
+        padding:4px 4px 4px 16px;
+    }
+    input{
+        font-size:16px; /* below 16px, iOS Safari auto-zooms on focus */
+        padding:12px 6px;
+    }
+    button{
+        width:40px;
+        height:40px;
+    }
+    #results{
+        margin-top:32px;
+        width:92%;
+    }
+    .result a{
+        font-size:18px;
+    }
+    .sponsored-headline{
+        font-size:16px;
+    }
+    .pagination{
+        flex-wrap:wrap;
+    }
+}
