@@ -274,6 +274,26 @@ button svg{
     transform:rotate(180deg);
 }
 
+/* === FIX: collapse the hero when results are present ===
+   The .hero rule above keeps min-height:70vh so the search box is
+   vertically centered on the homepage. That same 70vh was leaving a
+   big gap below the search box once #results rendered. :has() lets us
+   detect "results view" purely in CSS — app.js sets results.innerHTML
+   to "Searching..." (or actual results) the moment a search runs, and
+   clears it back to "" on popstate to the homepage, so :not(:empty)
+   cleanly distinguishes the two states.
+   Supported in Chrome 105+, Firefox 121+, Safari 15.4+. Older
+   browsers fall back to the old (tall hero) behavior — no breakage. */
+body:has(#results:not(:empty)) .hero{
+    min-height:auto;
+    padding-top:32px;
+    padding-bottom:16px;
+    justify-content:flex-start;
+}
+body:has(#results:not(:empty)) #results{
+    margin-top:24px;
+}
+
 /* Mobile: the fixed 100px+ side ad rails have nowhere to go on a narrow
    screen — they were overlapping the hero/search box directly on top of
    the actual content. Side-rail ads are inherently a wide-viewport
@@ -313,5 +333,12 @@ button svg{
     }
     .pagination{
         flex-wrap:wrap;
+    }
+    /* Tighter hero collapse on mobile too */
+    body:has(#results:not(:empty)) .hero{
+        padding-top:20px;
+    }
+    body:has(#results:not(:empty)) #results{
+        margin-top:20px;
     }
 }
